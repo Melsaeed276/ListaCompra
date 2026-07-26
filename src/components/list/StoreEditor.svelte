@@ -9,6 +9,7 @@
   import BarcodeScanner from '../loyalty/BarcodeScanner.svelte';
   import LoyaltyCode from '../loyalty/LoyaltyCode.svelte';
   import PhotoCapture from '../ui/PhotoCapture.svelte';
+  import ImageCrop from '../ui/ImageCrop.svelte';
 
   let { store, onClose }: { store?: Store; onClose: () => void } = $props();
 
@@ -75,6 +76,7 @@
   let initials = $state(store?.brand?.initials ?? '');
   let error = $state('');
   let capturing = $state(false);
+  let cropping = $state(false);
 
   function slug(s: string) {
     return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -207,6 +209,10 @@
               🖼️ {t('product.useImage')}
               <input type="file" accept="image/*" class="hidden" onchange={handleImage} />
             </label>
+            {#if iconKind === 'image' && iconImage}
+              <button type="button" onclick={() => (cropping = true)}
+                class="text-xs" style="color: var(--accent);">✂️ {t('crop.action')}</button>
+            {/if}
           </div>
           {#if iconImage}
             <p class="text-[10px] text-muted">{t('store.logoLoaded', { kb: Math.round(iconImage.length / 1024) })}</p>
@@ -307,4 +313,10 @@
   <PhotoCapture
     onCapture={(url) => { iconImage = url; iconKind = 'image'; error = ''; }}
     onClose={() => (capturing = false)} />
+{/if}
+
+{#if cropping && iconImage}
+  <ImageCrop src={iconImage}
+    onDone={(url) => { iconImage = url; iconKind = 'image'; cropping = false; }}
+    onClose={() => (cropping = false)} />
 {/if}

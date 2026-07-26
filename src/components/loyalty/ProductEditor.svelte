@@ -14,8 +14,10 @@
   import type { Category, Product, Unit } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
   import PhotoCapture from '../ui/PhotoCapture.svelte';
+  import ImageCrop from '../ui/ImageCrop.svelte';
 
   let capturing = $state(false);
+  let cropping = $state(false);
 
   let { product, categories, storeId, storeName, onClose }: {
     product: Product;
@@ -137,6 +139,9 @@
             <input type="file" accept="image/*" class="hidden" onchange={handleImage} />
           </label>
           {#if photo}
+            <!-- Recorte a demanda: la cámara pilla el entorno alrededor. -->
+            <button type="button" onclick={() => (cropping = true)}
+              class="text-xs" style="color: var(--accent);">✂️ {t('crop.action')}</button>
             <button type="button" onclick={() => (photo = '')}
               class="text-xs text-muted hover:underline">{t('product.removePhoto')}</button>
           {/if}
@@ -224,4 +229,10 @@
   <PhotoCapture
     onCapture={(url) => { photo = url; imgError = ''; }}
     onClose={() => (capturing = false)} />
+{/if}
+
+{#if cropping && photo}
+  <ImageCrop src={photo}
+    onDone={(url) => { photo = url; cropping = false; }}
+    onClose={() => (cropping = false)} />
 {/if}
