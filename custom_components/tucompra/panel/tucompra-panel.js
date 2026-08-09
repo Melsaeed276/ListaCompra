@@ -41,11 +41,38 @@ class TuCompraPanel extends HTMLElement {
     iframe.style.cssText =
       "border:0;width:100%;height:100%;display:block;background:transparent;";
     iframe.setAttribute("allow", "clipboard-write; camera");
-    iframe.addEventListener("load", () => this._postToken());
+    iframe.addEventListener("load", () => {
+      this._postToken();
+      this._fit();
+    });
 
-    this.style.cssText = "display:block;height:100%;width:100%;";
+    this.style.cssText = "display:block;width:100%;height:100%;";
     this.appendChild(iframe);
     this._iframe = iframe;
+
+    // Altura: `height:100%` solo funciona si el padre tiene altura definida, y
+    // el layout del panel de HA cambia entre versiones (basta con que un
+    // ancestro pase a `height:auto` para que esto colapse a unos pocos píxeles).
+    // Se mide la altura disponible de verdad —del borde superior del panel al
+    // fondo de la ventana— y se fija en píxeles, que no depende del padre.
+    this._fit();
+    // Al conectar, el elemento aún no tiene su posición definitiva: se repite
+    // tras el primer pintado (y una vez más, por si HA anima el layout).
+    requestAnimationFrame(() => {
+      this._fit();
+      setTimeout(() => this._fit(), 250);
+    });
+    this._onResize = () => this._fit();
+    window.addEventListener("resize", this._onResize);
+    // orientationchange y el teclado virtual mueven el viewport sin disparar
+    // 'resize' en algunos navegadores móviles.
+    window.visualViewport?.addEventListener("resize", this._onResize);
+    // Si HA recoloca el panel (abrir/cerrar la barra lateral, cambios de
+    // layout), reajustamos sin esperar a un resize de ventana.
+    if (window.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this._fit());
+      if (this.parentElement) this._ro.observe(this.parentElement);
+    }
 
     // Mensajes de la SPA hacia el wrapper. No exigimos que event.source sea
     // exactamente iframe.contentWindow: en el WebView del companion de Android
@@ -64,6 +91,27 @@ class TuCompraPanel extends HTMLElement {
         );
       }
     });
+  }
+
+  disconnectedCallback() {
+    if (this._onResize) {
+      window.removeEventListener("resize", this._onResize);
+      window.visualViewport?.removeEventListener("resize", this._onResize);
+    }
+    this._ro?.disconnect();
+  }
+
+  /** Fija la altura del panel a lo que de verdad queda de pantalla. */
+  _fit() {
+    if (!this._iframe) return;
+    const top = this.getBoundingClientRect().top;
+    const viewport = window.visualViewport?.height || window.innerHeight;
+    const h = Math.round(viewport - top);
+    // Si el elemento aún no está colocado (top absurdo o altura ridícula), se
+    // deja el 100% del CSS en vez de escribir una altura peor.
+    if (!Number.isFinite(h) || h < 200) return;
+    this.style.height = `${h}px`;
+    this._iframe.style.height = `${h}px`;
   }
 
   _postToken() {
