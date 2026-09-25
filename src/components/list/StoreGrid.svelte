@@ -4,6 +4,7 @@
   import StoreCard from './StoreCard.svelte';
   import StoreEditor from './StoreEditor.svelte';
   import type { Store } from '$lib/types';
+  import { localeLanguageTag } from '$lib/i18n/locale';
 
   let editing = $state<Store | undefined>(undefined);
   let creating = $state(false);
@@ -20,7 +21,7 @@
         const aCount = (app.state.lists[a.id]?.items ?? []).length;
         const bCount = (app.state.lists[b.id]?.items ?? []).length;
         if (bCount !== aCount) return bCount - aCount;
-        return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+        return a.name.localeCompare(b.name, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
       }),
   );
 
@@ -53,7 +54,7 @@
   type="button"
   onclick={openCreate}
   title={t('stores.add')}
-  class="fixed bottom-6 right-6 z-40 h-14 px-5 rounded-full font-bold text-white text-base flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition"
+  class="fixed bottom-6 end-6 z-40 h-14 px-5 rounded-full font-bold text-white text-base flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition"
   style="background: var(--accent); box-shadow: 0 12px 28px -6px var(--accent);"
 >
   <span class="text-2xl leading-none">+</span>

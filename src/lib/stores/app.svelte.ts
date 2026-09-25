@@ -3,13 +3,16 @@
 
 import type { AppState, IconRef, ListItem, Product, ShoppingList, Store, UserProfile } from '../types';
 import { createInitialState, loadState, saveState } from '../storage';
-import { getLocalizedSeed, LOCALIZED_STORES } from '../data/locales';
+import { getLocalizedSeed, LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from '../data/locales';
 import { DEFAULT_LOCALE, LOCALES, type Locale } from '../i18n/locale';
 
 // IDs de tienda de TODOS los locales: sirve para distinguir "tienda de seed
 // (de cualquier idioma)" de "tienda custom del usuario".
 const ALL_SEED_STORE_IDS = new Set(
-  LOCALES.flatMap((l) => LOCALIZED_STORES[l].map((s) => s.id)),
+  [
+    ...LOCALES.flatMap((l) => LOCALIZED_STORES[l].map((s) => s.id)),
+    ...RETIRED_SEED_STORE_IDS,
+  ],
 );
 
 class AppStore {
@@ -24,6 +27,18 @@ class AppStore {
     const seed = getLocalizedSeed(this.state.locale ?? DEFAULT_LOCALE);
     const seedStoreIds = new Set(seed.stores.map((s) => s.id));
     const seedCategoryIds = new Set(seed.categories.map((c) => c.id));
+
+    // Limpia los restos de seeds retirados en instalaciones ya existentes.
+    // Los IDs son históricos y reservados, así que no afectan tiendas custom.
+    for (const id of RETIRED_SEED_STORE_IDS) {
+      delete this.state.lists[id];
+      if (this.state.usage) delete this.state.usage[id];
+    }
+    if (this.state.defaultStores) {
+      for (const [typeId, storeId] of Object.entries(this.state.defaultStores)) {
+        if (RETIRED_SEED_STORE_IDS.has(storeId)) delete this.state.defaultStores[typeId];
+      }
+    }
 
     // Tiendas:
     //  - Editadas por el usuario (edited) del locale actual: se respetan.

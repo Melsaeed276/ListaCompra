@@ -12,13 +12,16 @@
 
 import { app } from './stores/app.svelte';
 import type { ShoppingList, Product, Store } from './types';
-import { LOCALIZED_STORES } from './data/locales';
+import { LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from './data/locales';
 import { LOCALES } from './i18n/locale';
 
 // IDs de tienda de todos los locales: distingue seed (de cualquier idioma) de
 // tienda custom del usuario, para no sincronizar el seed como si fuera custom.
 const ALL_SEED_STORE_IDS = new Set(
-  LOCALES.flatMap((l) => LOCALIZED_STORES[l].map((s) => s.id)),
+  [
+    ...LOCALES.flatMap((l) => LOCALIZED_STORES[l].map((s) => s.id)),
+    ...RETIRED_SEED_STORE_IDS,
+  ],
 );
 
 interface SyncSnapshot {
@@ -149,7 +152,9 @@ function buildSnapshot(): SyncSnapshot {
 
 function applySnapshot(snap: SyncSnapshot): void {
   // Merge de listas lista a lista: gana la versión más reciente por storeId.
-  const remoteLists = snap.lists ?? {};
+  const remoteLists = Object.fromEntries(
+    Object.entries(snap.lists ?? {}).filter(([id]) => !RETIRED_SEED_STORE_IDS.has(id)),
+  );
   const merged: Record<string, ShoppingList> = { ...app.state.lists };
   for (const [id, remoteList] of Object.entries(remoteLists)) {
     const local = merged[id];
@@ -163,9 +168,18 @@ function applySnapshot(snap: SyncSnapshot): void {
   const localUntouched = app.state.stores.filter(
     (s) => ALL_SEED_STORE_IDS.has(s.id) && !s.edited,
   );
-  app.state.stores = [...localUntouched, ...(snap.customStores ?? [])];
+  const remoteCustomStores = (snap.customStores ?? []).filter(
+    (s) => !RETIRED_SEED_STORE_IDS.has(s.id),
+  );
+  app.state.stores = [...localUntouched, ...remoteCustomStores];
 
-  if (snap.defaultStores) app.state.defaultStores = snap.defaultStores;
+  if (snap.defaultStores) {
+    app.state.defaultStores = Object.fromEntries(
+      Object.entries(snap.defaultStores).filter(
+        ([, storeId]) => !RETIRED_SEED_STORE_IDS.has(storeId),
+      ),
+    );
+  }
 
   app.persistLocalOnly();
   syncStatus.lastSyncAt = Date.now();

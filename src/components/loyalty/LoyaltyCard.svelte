@@ -15,7 +15,7 @@
     style="background: #FFFFFF;" onclick={onClose} role="presentation">
 
     <button onclick={onClose}
-      class="absolute top-4 right-4 text-3xl leading-none"
+      class="absolute top-4 end-4 text-3xl leading-none"
       style="color:#666;" aria-label={t('common.close')}>×</button>
 
     <p class="text-sm font-semibold" style="color:#111;">{store.name}</p>

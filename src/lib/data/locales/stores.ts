@@ -8,12 +8,21 @@ import { STORES_SEED } from '../stores';
 
 const s = (
   id: string, name: string, typeId: string,
-  emoji: string, bg: string, fg: string, initials?: string,
+  emoji: string, bg: string, fg: string, initials?: string, logo?: string,
 ): Store => ({
   id, name, typeId,
-  icon: { kind: 'emoji', value: emoji },
+  icon: logo ? { kind: 'image', value: logo } : { kind: 'emoji', value: emoji },
   brand: { bg, fg, initials },
 });
+
+// Tiendas retiradas del catálogo de Türkiye por vender alcohol (o, en el caso
+// del büfe genérico, porque no se puede garantizar que no lo venda). Mantener
+// sus IDs permite limpiar instalaciones existentes sin confundirlas con
+// tiendas creadas por el usuario.
+export const RETIRED_SEED_STORE_IDS = new Set([
+  'tr-migros', 'tr-carrefoursa', 'tr-macrocenter', 'tr-metro', 'tr-bufe',
+  'ar-migros', 'ar-carrefoursa', 'ar-macrocenter', 'ar-metro', 'ar-bufe',
+]);
 
 // 🇬🇧 Reino Unido
 const UK: Store[] = [
@@ -117,6 +126,38 @@ const BR: Store[] = [
   s('br-mercadinho',  'Mercadinho',     'otros',        '🏪', '#555555', '#FFFFFF'),
 ];
 
+// 🇹🇷 Türkiye
+const TR: Store[] = [
+  s('tr-a101',         'A101',           'supermercado', '🛒', '#FFFFFF', '#41A9C7', 'A101', '/logos/a101.svg'),
+  s('tr-bim',          'BİM',            'supermercado', '🛒', '#FFFFFF', '#0054A6', 'BİM', '/logos/bim.svg'),
+  s('tr-sok',          'ŞOK',            'supermercado', '🛒', '#FFD500', '#E30613', 'ŞOK', '/logos/sok.svg'),
+  s('tr-hakmar',       'Hakmar',         'supermercado', '🛒', '#FFFFFF', '#4DBA45', 'H', '/logos/hakmar.png'),
+  s('tr-pazar',        'Pazar',          'supermercado', '🧺', '#2F855A', '#FFFFFF'),
+  s('tr-kasap',        'Kasap',          'carniceria',   '🥩', '#8B1E1E', '#FFFFFF'),
+  s('tr-balikci',      'Balıkçı',        'pescaderia',   '🐟', '#0E6BA8', '#FFFFFF'),
+  s('tr-firin',        'Fırın',          'panaderia',    '🥖', '#B5651D', '#FFFFFF'),
+  s('tr-eczane',       'Eczane',         'farmacia',     '💊', '#E30613', '#FFFFFF'),
+  s('tr-gratis',       'Gratis',         'perfumeria',   '🧴', '#FFFFFF', '#7A1E88', 'G', '/logos/gratis.svg'),
+  s('tr-koctas',       'Koçtaş',         'ferreteria',   '🔧', '#FFFFFF', '#F36C21', 'K', '/logos/koctas.png'),
+  s('tr-ikea',         'IKEA',           'hogar',        '🛋️', '#FFFFFF', '#0058A3', 'IK', '/logos/ikea.svg'),
+];
+
+// العربية لتركيا: العلامات التجارية تبقى كما هي، والأسماء العامة مترجمة.
+const AR: Store[] = [
+  s('ar-a101',         'A101',           'supermercado', '🛒', '#FFFFFF', '#41A9C7', 'A101', '/logos/a101.svg'),
+  s('ar-bim',          'BİM',            'supermercado', '🛒', '#FFFFFF', '#0054A6', 'BİM', '/logos/bim.svg'),
+  s('ar-sok',          'ŞOK',            'supermercado', '🛒', '#FFD500', '#E30613', 'ŞOK', '/logos/sok.svg'),
+  s('ar-hakmar',       'Hakmar',         'supermercado', '🛒', '#FFFFFF', '#4DBA45', 'H', '/logos/hakmar.png'),
+  s('ar-pazar',        'السوق الأسبوعي', 'supermercado', '🧺', '#2F855A', '#FFFFFF'),
+  s('ar-kasap',        'الملحمة',        'carniceria',   '🥩', '#8B1E1E', '#FFFFFF'),
+  s('ar-balikci',      'متجر الأسماك',   'pescaderia',   '🐟', '#0E6BA8', '#FFFFFF'),
+  s('ar-firin',        'المخبز',         'panaderia',    '🥖', '#B5651D', '#FFFFFF'),
+  s('ar-eczane',       'الصيدلية',       'farmacia',     '💊', '#E30613', '#FFFFFF'),
+  s('ar-gratis',       'Gratis',         'perfumeria',   '🧴', '#FFFFFF', '#7A1E88', 'G', '/logos/gratis.svg'),
+  s('ar-koctas',       'Koçtaş',         'ferreteria',   '🔧', '#FFFFFF', '#F36C21', 'K', '/logos/koctas.png'),
+  s('ar-ikea',         'IKEA',           'hogar',        '🛋️', '#FFFFFF', '#0058A3', 'IK', '/logos/ikea.svg'),
+];
+
 export const LOCALIZED_STORES: Record<Locale, Store[]> = {
   es: STORES_SEED,
   en: UK,
@@ -124,4 +165,6 @@ export const LOCALIZED_STORES: Record<Locale, Store[]> = {
   fr: FR,
   de: DE,
   br: BR,
+  tr: TR,
+  ar: AR,
 };

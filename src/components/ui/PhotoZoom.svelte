@@ -16,7 +16,7 @@
 <div class="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 p-6"
   style="background: rgba(0,0,0,.9)" onclick={onClose} role="presentation">
 
-  <button onclick={onClose} class="absolute top-4 right-4 text-3xl leading-none"
+  <button onclick={onClose} class="absolute top-4 end-4 text-3xl leading-none"
     style="color: #ddd;" aria-label={t('photo.close')}>×</button>
 
   <img {src} alt={product.name}

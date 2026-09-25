@@ -10,6 +10,7 @@
   //    productIcons, aparte del producto.
 
   import { app } from '$lib/stores/app.svelte';
+  import { unitLabel } from '$lib/i18n/units';
   import { fileToStorableDataUrl } from '$lib/image';
   import type { Category, Product, Unit } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
@@ -178,7 +179,7 @@
         <select bind:value={unit}
           class="mt-1 w-full rounded-xl border px-4 py-2 bg-transparent"
           style="border-color: var(--border);">
-          {#each UNITS as u}<option value={u}>{u}</option>{/each}
+          {#each UNITS as u}<option value={u}>{unitLabel(u, app.state.locale)}</option>{/each}
         </select>
       </label>
 
