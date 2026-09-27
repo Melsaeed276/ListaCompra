@@ -140,7 +140,7 @@
                   </span>
                 {/if}
                 <span class="text-sm">{u.person?.name ?? u.name}</span>
-                {#if u.is_admin}<span class="text-[10px] text-muted ml-auto">{t('sync.admin')}</span>{/if}
+                {#if u.is_admin}<span class="text-[10px] text-muted ms-auto">{t('sync.admin')}</span>{/if}
               </label>
             </li>
           {/each}
@@ -207,7 +207,7 @@
               style="border-color: var(--border);">
               <button onclick={() => switchShare(s.id)}
                 disabled={s.id === syncStatus.activeShareId}
-                class="flex-1 text-left text-sm truncate hover:underline disabled:no-underline disabled:font-semibold">
+                class="flex-1 text-start text-sm truncate hover:underline disabled:no-underline disabled:font-semibold">
                 {s.id === syncStatus.activeShareId ? '➤ ' : ''}{s.name}
                 {#if s.members.length > 1}
                   <span class="text-xs text-muted">· {t('sync.people', { n: s.members.length })}</span>

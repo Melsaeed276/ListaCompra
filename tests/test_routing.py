@@ -56,6 +56,12 @@ def test_resto_de_idiomas():
     assert routing.resolve_locale("de-CH", None) == "de"
     assert routing.resolve_locale("pt", "BR") == "br"
     assert routing.resolve_locale("pt-BR", None) == "br"
+    assert routing.resolve_locale("tr", "TR") == "tr"
+    assert routing.resolve_locale("tr-TR", None) == "tr"
+    # Árabe usa el catálogo turco traducido, independientemente del país que
+    # reporte HA: está dirigido a hogares arabófonos residentes en Turquía.
+    assert routing.resolve_locale("ar", "TR") == "ar"
+    assert routing.resolve_locale("ar-SY", None) == "ar"
 
 
 def test_idioma_no_soportado_cae_al_ingles():
@@ -225,6 +231,7 @@ def test_el_pan_generico_existe_en_todos_los_idiomas():
         ("es", "ES", "pan", "Pan"), ("en", "GB", "bread", "Bread"),
         ("fr", "FR", "pain", "Pain"), ("de", "DE", "brot", "Brot"),
         ("pt", "BR", "pão", "Pão"),
+        ("tr", "TR", "ekmek", "Ekmek"), ("ar", "TR", "خبز", "خبز"),
     ]:
         res = routing.resolve(termino, snap, routing.catalog_for(cat, lang, cc))
         assert res["product"] is not None, f"{termino!r} no casa en {lang}"
@@ -250,13 +257,202 @@ def test_el_ejemplo_del_readme_existe_en_todos_los_idiomas():
         assert res["product"] is not None, f"{termino!r} no existe en el catálogo {lang}-{cc}"
 
 
-def test_catalogo_exportado_tiene_los_seis_idiomas():
+def test_catalogo_exportado_tiene_todos_los_idiomas():
     path = ROOT / "custom_components" / "tucompra" / "catalog.json"
     if not path.exists():
         return  # no se ha corrido `npm run export:catalog`; en CI sí
     cat = json.loads(path.read_text(encoding="utf-8"))
     assert "locales" in cat, "catalog.json sigue en formato plano (solo español)"
-    for loc in ("es", "en", "us", "fr", "de", "br"):
+    for loc in ("es", "en", "us", "fr", "de", "br", "tr", "ar"):
         assert loc in cat["locales"], f"falta el catálogo de {loc}"
         assert cat["locales"][loc]["products"], f"{loc} sin productos"
         assert cat["locales"][loc]["stores"], f"{loc} sin tiendas"
+
+
+def test_catalogos_de_turkiye_excluyen_alcohol_y_tiendas_que_lo_venden():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+    forbidden_store_suffixes = {"migros", "carrefoursa", "macrocenter", "metro", "bufe"}
+    forbidden_terms = {
+        "alkol", "bira", "şarap", "içki", "rakı", "viski", "votka", "tekila", "likör",
+        "كحول", "بيرة", "نبيذ", "مشروب عرق", "ويسكي", "فودكا",
+    }
+
+    for loc in ("tr", "ar"):
+        stores = cat["locales"][loc]["stores"]
+        assert not any(
+            store["id"].removeprefix(f"{loc}-") in forbidden_store_suffixes
+            for store in stores
+        )
+
+        product_text = " ".join(
+            f'{product["id"]} {product["name"]}'.lower()
+            for product in cat["locales"][loc]["products"]
+        )
+        assert not any(term in product_text for term in forbidden_terms)
+
+
+def test_catalogos_de_turkiye_incluyen_el_pazar_semanal():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+
+    for loc in ("tr", "ar"):
+        pazar_id = f"{loc}-pazar"
+        stores = cat["locales"][loc]["stores"]
+        assert any(store["id"] == pazar_id for store in stores)
+
+        pazar_products = [
+            product for product in cat["locales"][loc]["products"]
+            if product.get("storeId") == pazar_id
+        ]
+        assert len(pazar_products) == 14
+        assert all(product["categoryId"] == "sup-otros" for product in pazar_products)
+
+
+def test_vista_combinada_esta_enrutada_y_localizada():
+    shell = (ROOT / "src" / "components" / "AppShell.svelte").read_text(encoding="utf-8")
+    list_view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    all_view = (ROOT / "src" / "components" / "list" / "AllItemsView.svelte").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "hash === '#/all'" in shell
+    assert shell.count("<AllItemsButton") == 1
+    assert "<AllItemsButton" in list_view
+    assert "let mode = $state<ViewMode>('category')" in all_view
+    assert "type ViewMode = 'category' | 'store' | 'az'" in all_view
+    assert "entry.store.id !== storeFilter" in all_view
+    assert "entry.category?.name" in all_view
+    assert "entry.item.note" in all_view
+    assert "priorityRank(a.item)" in all_view
+    assert "<QuickAddItemDialog" in all_view
+
+    all_row = (ROOT / "src" / "components" / "list" / "AllItemsRow.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "{item.note}" in all_row
+    assert "item.priority === 'high'" in all_row
+
+    quick_add = (ROOT / "src" / "components" / "list" / "QuickAddItemDialog.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "app.addItem(store.id" in quick_add
+    assert "app.createFreeProduct(name, store.typeId)" in quick_add
+    assert "product.storeId === store.id" in quick_add
+
+    required_keys = (
+        "all.title", "all.openCount", "all.search", "all.byCategory",
+        "all.byStore", "all.alphabetical", "all.allStores", "all.completed",
+        "all.addItem", "all.quickAddTitle", "all.chooseStore", "all.createProduct",
+    )
+    for key in required_keys:
+        assert ui.count(f"'{key}'") >= 5, f"{key} no está en todos los diccionarios base"
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar
+
+
+def test_catalogos_de_turkiye_incluyen_trendyol():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+
+    for loc in ("tr", "ar"):
+        stores = cat["locales"][loc]["stores"]
+        trendyol = next((store for store in stores if store["id"] == f"{loc}-trendyol"), None)
+        assert trendyol is not None
+        assert trendyol["name"] == "Trendyol"
+        assert trendyol["typeId"] == "supermercado"
+
+    logo = ROOT / "public" / "logos" / "trendyol.svg"
+    assert logo.exists()
+    assert "<svg" in logo.read_text(encoding="utf-8")
+
+
+def test_tiendas_online_permiten_guardar_enlaces_de_producto():
+    types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+    store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")
+    view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "url?: string" in types
+    assert "setItemUrl(storeId" in store
+    assert "const isOnlineStore = $derived(!!store?.online)" in view
+    assert "rel=\"noopener noreferrer\"" in view
+
+    link_helper = (ROOT / "src" / "lib" / "product-link.ts").read_text(encoding="utf-8")
+    editor = (ROOT / "src" / "components" / "loyalty" / "ProductEditor.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "url.protocol === 'http:' || url.protocol === 'https:'" in link_helper
+    assert "itemId?: string" in editor
+    assert "app.setItemDetails(storeId, itemId" in editor
+    assert "t('list.productLink')" in editor
+    assert "showLinkField = $state(!!productUrl)" in editor
+    assert "t('list.addProductLink')" in editor
+
+    for key in ("list.addProductLink", "list.productLink", "list.saveLink", "list.invalidLink"):
+        assert ui.count(f"'{key}'") >= 5
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar
+
+
+def test_detalles_de_producto_y_tiendas_online_genericas():
+    types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+    store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")
+    list_view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    product_editor = (
+        ROOT / "src" / "components" / "loyalty" / "ProductEditor.svelte"
+    ).read_text(encoding="utf-8")
+    store_editor = (ROOT / "src" / "components" / "list" / "StoreEditor.svelte").read_text(
+        encoding="utf-8"
+    )
+    stores = (ROOT / "src" / "lib" / "data" / "locales" / "stores.ts").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "export type ItemPriority = 'low' | 'normal' | 'high'" in types
+    assert "online?: boolean" in types
+    assert "setItemDetails(" in store
+    assert "priorityRank(a.priority)" in list_view
+    assert "{item.note}" in list_view
+    assert "const isOnlineStore = $derived(!!store?.online)" in list_view
+    assert "bind:checked={online}" in store_editor
+    assert "t('store.online')" in store_editor
+    assert "t('list.productNote')" in product_editor
+    assert "t('list.priority')" in product_editor
+    assert "const isOnlineItem" in product_editor
+    assert stores.count("'/logos/trendyol.svg', true") == 2
+
+    keys = (
+        "list.productNote",
+        "list.productNotePlaceholder",
+        "list.priority",
+        "list.priority.low",
+        "list.priority.normal",
+        "list.priority.high",
+        "store.online",
+        "store.onlineNote",
+    )
+    for key in keys:
+        assert ui.count(f"'{key}'") >= 5
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar

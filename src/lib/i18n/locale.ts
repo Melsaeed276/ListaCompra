@@ -5,9 +5,9 @@
 //  - qué catálogo de tiendas/productos cargar (seed localizado), y
 //  - qué bandera mostrar junto al selector de tema.
 
-export type Locale = 'es' | 'en' | 'us' | 'fr' | 'de' | 'br';
+export type Locale = 'es' | 'en' | 'us' | 'fr' | 'de' | 'br' | 'tr' | 'ar';
 
-export const LOCALES: Locale[] = ['es', 'en', 'us', 'fr', 'de', 'br'];
+export const LOCALES: Locale[] = ['es', 'en', 'us', 'fr', 'de', 'br', 'tr', 'ar'];
 
 /** Catálogo por defecto cuando el idioma no es ninguno de los soportados.
  *  Inglés y no español: el proyecto nace en Euskadi, pero se publica en HACS
@@ -21,6 +21,10 @@ export function resolveLocale(language?: string, country?: string): Locale {
   if (lang === 'de') return 'de';
   if (lang === 'fr') return 'fr';
   if (lang === 'pt') return 'br';
+  if (lang === 'tr') return 'tr';
+  // El catálogo árabe está pensado para familias arabófonas que compran en
+  // Turquía: comparte tiendas turcas, pero traduce interfaz y productos.
+  if (lang === 'ar') return 'ar';
   if (lang === 'en') return cc === 'US' ? 'us' : 'en';
   // Lenguas cooficiales de España: el catálogo español es el que les sirve.
   // Sin esto caerían al DEFAULT_LOCALE inglés, que para un HA en euskera sería
@@ -49,7 +53,7 @@ export function countryToFlag(cc?: string): string {
 
 // Bandera por idioma cuando HA no reporta país.
 const LANG_FLAG: Record<string, string> = {
-  es: '🇪🇸', en: '🇬🇧', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹', pt: '🇧🇷',
+  es: '🇪🇸', en: '🇬🇧', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹', pt: '🇧🇷', tr: '🇹🇷', ar: '🇹🇷',
   nl: '🇳🇱', pl: '🇵🇱', ca: '🇪🇸', eu: '🇪🇸', gl: '🇪🇸',
 };
 
@@ -63,10 +67,23 @@ export function localeFlag(language?: string, country?: string): string {
 
 export const LOCALE_LABEL: Record<Locale, string> = {
   es: 'España', en: 'UK', us: 'USA', fr: 'France', de: 'Deutschland', br: 'Brasil',
+  tr: 'Türkiye', ar: 'Türkiye (العربية)',
 };
 
 // Bandera del catálogo cargado (locale efectivo). Fiable aunque HA no reporte
 // país: siempre coincide con las tiendas/productos que se están mostrando.
 export const LOCALE_FLAG: Record<Locale, string> = {
-  es: '🇪🇸', en: '🇬🇧', us: '🇺🇸', fr: '🇫🇷', de: '🇩🇪', br: '🇧🇷',
+  es: '🇪🇸', en: '🇬🇧', us: '🇺🇸', fr: '🇫🇷', de: '🇩🇪', br: '🇧🇷', tr: '🇹🇷', ar: '🇹🇷',
 };
+
+export function localeDirection(locale?: Locale): 'ltr' | 'rtl' {
+  return locale === 'ar' ? 'rtl' : 'ltr';
+}
+
+export function localeLanguageTag(locale?: Locale): string {
+  const tags: Record<Locale, string> = {
+    es: 'es-ES', en: 'en-GB', us: 'en-US', fr: 'fr-FR', de: 'de-DE',
+    br: 'pt-BR', tr: 'tr-TR', ar: 'ar',
+  };
+  return tags[locale ?? DEFAULT_LOCALE];
+}

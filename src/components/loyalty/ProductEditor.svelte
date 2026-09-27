@@ -10,8 +10,10 @@
   //    productIcons, aparte del producto.
 
   import { app } from '$lib/stores/app.svelte';
+  import { unitLabel } from '$lib/i18n/units';
   import { fileToStorableDataUrl } from '$lib/image';
-  import type { Category, Product, Unit } from '$lib/types';
+  import { normalizeProductUrl } from '$lib/product-link';
+  import type { Category, ItemPriority, Product, Unit } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
   import PhotoCapture from '../ui/PhotoCapture.svelte';
   import ImageCrop from '../ui/ImageCrop.svelte';
@@ -19,11 +21,12 @@
   let capturing = $state(false);
   let cropping = $state(false);
 
-  let { product, categories, storeId, storeName, onClose }: {
+  let { product, categories, storeId, storeName, itemId, onClose }: {
     product: Product;
     categories: Category[];
     storeId: string;
     storeName: string;
+    itemId?: string;
     onClose: () => void;
   } = $props();
 
@@ -40,6 +43,19 @@
   // Imagen actual: la que haya puesto el usuario, o la que trajo Open Food Facts.
   let photo = $state(product.icon.kind === 'image' ? product.icon.value : '');
   let imgError = $state('');
+  const editedItem = $derived(
+    itemId ? app.state.lists[storeId]?.items.find((item) => item.id === itemId) : undefined,
+  );
+  const isOnlineItem = $derived(
+    !!itemId && !!app.state.stores.find((candidate) => candidate.id === storeId)?.online,
+  );
+  let productUrl = $state(
+    itemId ? app.state.lists[storeId]?.items.find((item) => item.id === itemId)?.url ?? '' : '',
+  );
+  let showLinkField = $state(!!productUrl);
+  let linkError = $state('');
+  let note = $state(editedItem?.note ?? '');
+  let priority = $state<ItemPriority>(editedItem?.priority ?? 'normal');
 
   const inLists = $derived(app.countItemsOf(product.id));
 
@@ -69,6 +85,12 @@
   }
 
   function save() {
+    const normalizedUrl = isOnlineItem ? normalizeProductUrl(productUrl) : '';
+    if (normalizedUrl === null) {
+      linkError = t('list.invalidLink');
+      return;
+    }
+
     const icon = photo
       ? ({ kind: 'image', value: photo } as const)
       : ({ kind: 'emoji', value: emoji || '🏷️' } as const);
@@ -93,6 +115,13 @@
     // va SIEMPRE al override (también en los custom) para que "volver al
     // original" recupere la foto de OFF en vez de haberla machacado.
     app.setProductIcon(product.id, icon);
+    if (itemId) {
+      app.setItemDetails(storeId, itemId, {
+        note,
+        priority,
+        ...(isOnlineItem ? { url: normalizedUrl || undefined } : {}),
+      });
+    }
     onClose();
   }
 
@@ -178,7 +207,7 @@
         <select bind:value={unit}
           class="mt-1 w-full rounded-xl border px-4 py-2 bg-transparent"
           style="border-color: var(--border);">
-          {#each UNITS as u}<option value={u}>{u}</option>{/each}
+          {#each UNITS as u}<option value={u}>{unitLabel(u, app.state.locale)}</option>{/each}
         </select>
       </label>
 
@@ -197,6 +226,51 @@
         style="border: 1px solid var(--border);">
         {t('product.seedNote', { name: product.name })}
       </p>
+    {/if}
+
+    {#if itemId}
+      <label class="block">
+        <span class="text-sm font-medium">{t('list.productNote')}</span>
+        <textarea bind:value={note} rows="2" maxlength="240"
+          placeholder={t('list.productNotePlaceholder')}
+          class="mt-1 w-full resize-none rounded-xl border px-4 py-2 bg-transparent"
+          style="border-color: var(--border);"></textarea>
+      </label>
+
+      <fieldset>
+        <legend class="mb-1 text-sm font-medium">{t('list.priority')}</legend>
+        <div class="grid grid-cols-3 overflow-hidden rounded-xl border"
+          style="border-color: var(--border);">
+          {#each ['low', 'normal', 'high'] as value (value)}
+            <button type="button" onclick={() => (priority = value as ItemPriority)}
+              class="px-2 py-2 text-sm font-medium transition"
+              class:text-white={priority === value}
+              style={priority === value ? 'background: var(--accent);' : ''}>
+              {t(`list.priority.${value}`)}
+            </button>
+          {/each}
+        </div>
+      </fieldset>
+    {/if}
+
+    {#if isOnlineItem}
+      {#if showLinkField}
+        <label class="block">
+          <span class="text-sm font-medium">{t('list.productLink')}</span>
+          <input type="text" inputmode="url" bind:value={productUrl}
+            placeholder={t('list.productLinkPlaceholder')}
+            class="mt-1 w-full rounded-xl border px-4 py-2 bg-transparent"
+            style="border-color: var(--border);" />
+          {#if linkError}<span class="mt-1 block text-xs text-red-600">{linkError}</span>{/if}
+        </label>
+      {:else}
+        <button type="button" onclick={() => (showLinkField = true)}
+          class="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium"
+          style="border-color: var(--border); color: var(--accent);">
+          <span aria-hidden="true">🔗</span>
+          {t('list.addProductLink')}
+        </button>
+      {/if}
     {/if}
 
     {#if product.barcode}

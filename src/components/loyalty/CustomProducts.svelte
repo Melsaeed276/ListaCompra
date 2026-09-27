@@ -11,6 +11,7 @@
   import type { Category, Product } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
   import ProductEditor from './ProductEditor.svelte';
+  import { localeLanguageTag } from '$lib/i18n/locale';
 
   let { categories, storeId, storeName, onClose }: {
     categories: Category[];
@@ -40,7 +41,7 @@
   });
 
   const byName = (a: Product, b: Product) =>
-    a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    a.name.localeCompare(b.name, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
 
   /** Sin búsqueda: solo los tuyos (escaneados o creados), que son pocos y los
    *  que se suelen querer tocar. Con búsqueda: cualquiera del catálogo. */

@@ -19,6 +19,10 @@
   import ProductEditor from '../loyalty/ProductEditor.svelte';
   import HoldButton from '../ui/HoldButton.svelte';
   import PhotoZoom from '../ui/PhotoZoom.svelte';
+  import AllItemsButton from './AllItemsButton.svelte';
+  import { localeLanguageTag } from '$lib/i18n/locale';
+  import { unitLabel } from '$lib/i18n/units';
+  import { normalizeProductUrl } from '$lib/product-link';
 
   let { storeId }: { storeId: string } = $props();
 
@@ -36,6 +40,10 @@
   let zoomProduct = $state<Product | null>(null);
   // Producto que se está editando desde su fila de la lista (✏️).
   let editingProduct = $state<Product | null>(null);
+  let editingItemId = $state<string | null>(null);
+  let linkingItemId = $state<string | null>(null);
+  let linkDraft = $state('');
+  let linkError = $state('');
 
   // Cuántos productos custom hay disponibles en esta tienda (para el enlace).
   // Todos los de esta tienda: desde ahí se le pone imagen a cualquiera, no solo
@@ -51,7 +59,7 @@
     const aOtros = /^otros$/i.test(a.name.trim());
     const bOtros = /^otros$/i.test(b.name.trim());
     if (aOtros !== bOtros) return aOtros ? 1 : -1;
-    return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return a.name.localeCompare(b.name, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
   };
 
   // Cuántos productos "habituales" mostramos cuando no hay búsqueda.
@@ -132,13 +140,17 @@
       .map(([catId, items]) => ({
         category: app.state.categories.find((c) => c.id === catId),
         items: items.slice().sort((a, b) => {
+          const priorityDifference = priorityRank(a.priority) - priorityRank(b.priority);
+          if (priorityDifference !== 0) return priorityDifference;
           const pa = app.state.products.find((p) => p.id === a.productId)?.name ?? '';
           const pb = app.state.products.find((p) => p.id === b.productId)?.name ?? '';
-          return pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+          return pa.localeCompare(pb, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
         }),
       }))
       .sort((a, b) =>
-        (a.category?.name ?? '~').localeCompare(b.category?.name ?? '~', 'es', { sensitivity: 'base' }),
+        (a.category?.name ?? '~').localeCompare(
+          b.category?.name ?? '~', localeLanguageTag(app.state.locale), { sensitivity: 'base' },
+        ),
       );
   });
 
@@ -176,6 +188,38 @@
   }
 
   const isInbox = $derived(storeId === INBOX_ID);
+  const isOnlineStore = $derived(!!store?.online);
+
+  function priorityRank(priority?: 'low' | 'normal' | 'high') {
+    return priority === 'high' ? 0 : priority === 'low' ? 2 : 1;
+  }
+
+  function safeProductUrl(value?: string): string | null {
+    return value ? normalizeProductUrl(value) || null : null;
+  }
+
+  function editItemLink(item: { id: string; url?: string }) {
+    linkingItemId = item.id;
+    linkDraft = item.url ?? '';
+    linkError = '';
+  }
+
+  function saveItemLink(itemId: string) {
+    const value = linkDraft.trim();
+    if (!value) {
+      app.setItemUrl(storeId, itemId);
+      linkingItemId = null;
+      return;
+    }
+    const safe = normalizeProductUrl(value);
+    if (!safe) {
+      linkError = t('list.invalidLink');
+      return;
+    }
+    app.setItemUrl(storeId, itemId, safe);
+    linkingItemId = null;
+    linkError = '';
+  }
 
   // Tiendas a las que mover (todas menos la actual), "Otros" al final.
   const moveTargets = $derived(
@@ -225,7 +269,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 min-w-0">
           <MenuButton />
-          <a href="#/" class="text-sm text-muted hover:underline shrink-0">← {t('nav.stores')}</a>
+          <a href="#/" class="text-sm text-muted hover:underline shrink-0"><span class="back-arrow">←</span> {t('nav.stores')}</a>
           <span class="font-semibold flex items-center gap-1 min-w-0">
             {#if store.icon.kind === 'image'}
               <img src={store.icon.value.startsWith('data:') ? store.icon.value : base(store.icon.value)}
@@ -237,6 +281,7 @@
           </span>
         </div>
         <div class="flex gap-1 shrink-0">
+          <AllItemsButton />
           {#if store.loyalty}
             <button onclick={() => (showLoyalty = true)}
               title={t('list.showLoyalty')}
@@ -355,7 +400,7 @@
 
     {#if isInbox && list.items.length > 0}
       <div class="card-elev p-3 text-sm flex items-start gap-2"
-        style="border-left: 3px solid var(--accent);">
+        style="border-inline-start: 3px solid var(--accent);">
         <span class="text-lg leading-none">📥</span>
         <span>{t('list.inboxHint')} {t('list.moveHint')}</span>
       </div>
@@ -373,12 +418,13 @@
             <h3 class="font-semibold mb-3 flex items-center gap-2">
               <span>{group.category?.icon.kind === 'emoji' ? group.category.icon.value : '📁'}</span>
               {group.category?.name ?? t('list.noCategory')}
-              <span class="text-xs text-muted ml-auto">{group.items.length}</span>
+              <span class="text-xs text-muted ms-auto">{group.items.length}</span>
             </h3>
             <ul class="divide-y" style="border-color: var(--border);">
               {#each group.items as item (item.id)}
                 {@const p = product(item.productId)}
                 {@const sug = suggestedStore(item.productId)}
+                {@const itemUrl = safeProductUrl(item.url)}
                 <li class={`flex items-center gap-3 py-2.5 flex-wrap ${item.done ? 'product-done' : ''}`}>
                   <button onclick={() => app.toggleItem(storeId, item.id)}
                     class="size-9 shrink-0 rounded-full border-2 grid place-items-center transition"
@@ -396,7 +442,19 @@
                     <ProductIcon product={p} px={30} />
                   {/if}
                   <div class="flex-1 min-w-0">
-                    <div class="product-name font-medium truncate">{p?.name ?? '?'}</div>
+                    <div class="flex items-center gap-2 min-w-0">
+                      <div class="product-name font-medium truncate">{p?.name ?? '?'}</div>
+                      {#if item.priority === 'high'}
+                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style="background: #fee2e2; color: #b91c1c;">↑ {t('list.priority.high')}</span>
+                      {:else if item.priority === 'low'}
+                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style="background: var(--bg); color: var(--muted);">↓ {t('list.priority.low')}</span>
+                      {/if}
+                    </div>
+                    {#if item.note}
+                      <p class="mt-0.5 line-clamp-2 text-xs text-muted">{item.note}</p>
+                    {/if}
                     <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                       <button onclick={() => step(item.id, -1)}
                         class="size-7 rounded-full border grid place-items-center hover:bg-[var(--bg)]"
@@ -412,7 +470,7 @@
                         onchange={(e) => app.setItemUnit(storeId, item.id, e.currentTarget.value as Unit)}
                         class="text-xs rounded-md border px-1.5 py-0.5 bg-transparent"
                         style="border-color: var(--border);">
-                        {#each UNITS as u}<option value={u}>{u}</option>{/each}
+                        {#each UNITS as u}<option value={u}>{unitLabel(u, app.state.locale)}</option>{/each}
                       </select>
                     </div>
                   </div>
@@ -422,7 +480,19 @@
                        muy juntos y abrir el editor sin querer molesta. -->
                   {#if p}
                     <HoldButton title={t('product.holdToEdit')}
-                      onHold={() => (editingProduct = p)}>✏️</HoldButton>
+                      onHold={() => { editingProduct = p; editingItemId = item.id; }}>✏️</HoldButton>
+                  {/if}
+                  {#if isOnlineStore}
+                    {#if itemUrl}
+                      <a href={itemUrl} target="_blank" rel="noopener noreferrer"
+                        class="text-lg shrink-0 hover:scale-110 transition"
+                        title={t('list.openProductLink')}
+                        aria-label={t('list.openProductLink')}>↗</a>
+                    {/if}
+                    <button onclick={() => editItemLink(item)}
+                      class="text-lg shrink-0 hover:scale-110 transition"
+                      title={t('list.addProductLink')}
+                      aria-label={t('list.addProductLink')}>🔗</button>
                   {/if}
                   <button onclick={() => (movingItemId = movingItemId === item.id ? null : item.id)}
                     class="text-muted hover:text-current text-lg shrink-0"
@@ -431,7 +501,7 @@
                     class="text-muted hover:text-red-500 text-2xl shrink-0" title={t('list.remove')}>×</button>
 
                   {#if movingItemId === item.id}
-                    <div class="basis-full mt-2 flex items-center gap-2 flex-wrap pl-12">
+                    <div class="basis-full mt-2 flex items-center gap-2 flex-wrap ps-12">
                       <span class="text-xs text-muted">{t('list.moveTo')}</span>
                       {#if sug}
                         <button onclick={() => moveTo(item.id, sug.id)}
@@ -448,6 +518,26 @@
                       <button onclick={() => (movingItemId = null)}
                         class="text-xs text-muted hover:underline">{t('list.cancelLower')}</button>
                     </div>
+                  {/if}
+
+                  {#if isOnlineStore && linkingItemId === item.id}
+                    <form class="basis-full mt-2 ps-0 sm:ps-12 space-y-1"
+                      onsubmit={(event) => { event.preventDefault(); saveItemLink(item.id); }}>
+                      <div class="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                        <input type="text" inputmode="url" bind:value={linkDraft}
+                          placeholder={t('list.productLinkPlaceholder')}
+                          aria-label={t('list.productLink')}
+                          class="col-span-2 sm:flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm bg-transparent"
+                          style="border-color: var(--border);" />
+                        <button type="submit"
+                          class="rounded-lg px-3 py-2 text-sm font-medium text-white"
+                          style="background: var(--accent);">{t('list.saveLink')}</button>
+                        <button type="button" onclick={() => (linkingItemId = null)}
+                          class="rounded-lg border px-3 py-2 text-sm text-muted hover:bg-[var(--bg)]"
+                          style="border-color: var(--border);">{t('list.cancelLower')}</button>
+                      </div>
+                      {#if linkError}<p class="text-xs text-red-600">{linkError}</p>{/if}
+                    </form>
                   {/if}
                 </li>
               {/each}
@@ -473,7 +563,8 @@
 
   {#if editingProduct}
     <ProductEditor product={editingProduct} {categories} {storeId} storeName={store.name}
-      onClose={() => (editingProduct = null)} />
+      itemId={editingItemId ?? undefined}
+      onClose={() => { editingProduct = null; editingItemId = null; }} />
   {/if}
 
   {#if showScanProduct}
@@ -491,5 +582,9 @@
     color: white;
     border-color: var(--accent) !important;
     box-shadow: 0 4px 12px -4px var(--accent);
+  }
+  :global(html[dir='rtl']) .back-arrow {
+    display: inline-block;
+    transform: scaleX(-1);
   }
 </style>

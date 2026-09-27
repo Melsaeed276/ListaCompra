@@ -7,6 +7,7 @@
 
   import { app } from '$lib/stores/app.svelte';
   import { syncStatus } from '$lib/sync.svelte';
+  import { localeLanguageTag } from '$lib/i18n/locale';
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -21,7 +22,9 @@
         stores: enabled
           .filter((s) => s.typeId === t.id)
           .slice()
-          .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })),
+          .sort((a, b) => a.name.localeCompare(
+            b.name, localeLanguageTag(app.state.locale), { sensitivity: 'base' },
+          )),
       }))
       .filter((x) => x.stores.length >= 2);
   });

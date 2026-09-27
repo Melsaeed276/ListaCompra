@@ -9,13 +9,15 @@
   import ProfileSetup from './auth/ProfileSetup.svelte';
   import StoreGrid from './list/StoreGrid.svelte';
   import ListView from './list/ListView.svelte';
+  import AllItemsButton from './list/AllItemsButton.svelte';
+  import AllItemsView from './list/AllItemsView.svelte';
   import ThemeToggle from './ui/ThemeToggle.svelte';
   import SyncDiag from './ui/SyncDiag.svelte';
   import DefaultStores from './ui/DefaultStores.svelte';
   import Flag from './ui/Flag.svelte';
   import MenuButton from './ui/MenuButton.svelte';
   import { syncStatus, hydrateAuth, stopSync } from '$lib/sync.svelte';
-  import { resolveLocale, resolveLocaleFromBrowser, LOCALE_LABEL, DEFAULT_LOCALE } from '$lib/i18n/locale';
+  import { resolveLocale, resolveLocaleFromBrowser, LOCALE_LABEL, DEFAULT_LOCALE, localeDirection } from '$lib/i18n/locale';
   import { t } from '$lib/i18n/ui.svelte';
 
   let showDiag = $state(false);
@@ -35,6 +37,7 @@
     const m = hash.match(/^#\/lista\/(.+)$/);
     return m ? decodeURIComponent(m[1]) : null;
   });
+  const showAllItems = $derived(hash === '#/all');
 
   onMount(async () => {
     app.hydrate();
@@ -53,6 +56,10 @@
     // anterior, así que no debe pisar una elección ya guardada.
     if (syncStatus.inHA) {
       app.setLocale(resolveLocale(syncStatus.haLanguage, syncStatus.haCountry));
+    } else if (import.meta.env.DEV) {
+      // Desarrollo local: facilita probar el catálogo turco sin cambiar el
+      // idioma del navegador. El build de Home Assistant no entra aquí.
+      app.setLocale('tr');
     } else if (app.state.locale === undefined && !app.state.profile) {
       // Sin perfil = visita nueva de verdad. `locale === undefined` por sí solo
       // no basta: también lo es para quien ya venía usando la demo, y a ese
@@ -85,6 +92,11 @@
     if (app.state.profile?.theme) applyTheme(app.state.profile.theme);
   });
 
+  $effect(() => {
+    document.documentElement.lang = activeLocale;
+    document.documentElement.dir = localeDirection(activeLocale);
+  });
+
   /** Borra los datos locales de este navegador. Si la sync con HA está activa,
    *  los datos siguen en Home Assistant y se recuperan al recargar. */
   function signOut() {
@@ -105,6 +117,10 @@
   {:else}
     <div class="min-h-screen grid place-items-center text-muted">{t('common.loading')}</div>
   {/if}
+{:else if showAllItems}
+  <main class="mx-auto max-w-5xl px-4 py-6">
+    <AllItemsView />
+  </main>
 {:else if activeStoreId}
   <!-- Vista de una tienda (routing por hash #/lista/<id>) -->
   <main class="mx-auto max-w-3xl px-4 py-6">
@@ -112,11 +128,11 @@
   </main>
 {:else}
   <main class="mx-auto max-w-5xl px-4 py-6">
-    <header class="flex items-center justify-between mb-6 gap-3">
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
       <div class="flex items-center gap-2 min-w-0">
         <MenuButton />
         <div class="min-w-0">
-        <h1 class="text-2xl font-bold">🛒 Tu Compra</h1>
+        <h1 class="text-2xl font-bold">🛒 {t('nav.marketList')}</h1>
         <p class="text-sm text-muted truncate">{t('nav.greeting', { name: app.state.profile.username })}</p>
         <button onclick={() => (showDiag = true)}
           title={t('sync.status')}
@@ -138,7 +154,8 @@
         </button>
         </div>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+        <AllItemsButton />
         <button onclick={() => (showDefaults = true)} title={t('nav.defaultStores')}
           class="rounded-full border px-3 py-2 text-sm hover:bg-[var(--bg)] transition"
           style="border-color: var(--border);">🎯</button>
