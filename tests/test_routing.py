@@ -311,3 +311,33 @@ def test_catalogos_de_turkiye_incluyen_el_pazar_semanal():
         ]
         assert len(pazar_products) == 14
         assert all(product["categoryId"] == "sup-otros" for product in pazar_products)
+
+
+def test_vista_combinada_esta_enrutada_y_localizada():
+    shell = (ROOT / "src" / "components" / "AppShell.svelte").read_text(encoding="utf-8")
+    list_view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    all_view = (ROOT / "src" / "components" / "list" / "AllItemsView.svelte").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "hash === '#/all'" in shell
+    assert shell.count("<AllItemsButton") == 1
+    assert "<AllItemsButton" in list_view
+    assert "let mode = $state<ViewMode>('category')" in all_view
+    assert "type ViewMode = 'category' | 'store' | 'az'" in all_view
+    assert "entry.store.id !== storeFilter" in all_view
+    assert "entry.category?.name" in all_view
+
+    required_keys = (
+        "all.title", "all.openCount", "all.search", "all.byCategory",
+        "all.byStore", "all.alphabetical", "all.allStores", "all.completed",
+    )
+    for key in required_keys:
+        assert ui.count(f"'{key}'") >= 5, f"{key} no está en todos los diccionarios base"
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar

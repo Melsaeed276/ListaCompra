@@ -9,6 +9,8 @@
   import ProfileSetup from './auth/ProfileSetup.svelte';
   import StoreGrid from './list/StoreGrid.svelte';
   import ListView from './list/ListView.svelte';
+  import AllItemsButton from './list/AllItemsButton.svelte';
+  import AllItemsView from './list/AllItemsView.svelte';
   import ThemeToggle from './ui/ThemeToggle.svelte';
   import SyncDiag from './ui/SyncDiag.svelte';
   import DefaultStores from './ui/DefaultStores.svelte';
@@ -35,6 +37,7 @@
     const m = hash.match(/^#\/lista\/(.+)$/);
     return m ? decodeURIComponent(m[1]) : null;
   });
+  const showAllItems = $derived(hash === '#/all');
 
   onMount(async () => {
     app.hydrate();
@@ -114,6 +117,10 @@
   {:else}
     <div class="min-h-screen grid place-items-center text-muted">{t('common.loading')}</div>
   {/if}
+{:else if showAllItems}
+  <main class="mx-auto max-w-5xl px-4 py-6">
+    <AllItemsView />
+  </main>
 {:else if activeStoreId}
   <!-- Vista de una tienda (routing por hash #/lista/<id>) -->
   <main class="mx-auto max-w-3xl px-4 py-6">
@@ -121,7 +128,7 @@
   </main>
 {:else}
   <main class="mx-auto max-w-5xl px-4 py-6">
-    <header class="flex items-center justify-between mb-6 gap-3">
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
       <div class="flex items-center gap-2 min-w-0">
         <MenuButton />
         <div class="min-w-0">
@@ -147,7 +154,8 @@
         </button>
         </div>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+        <AllItemsButton />
         <button onclick={() => (showDefaults = true)} title={t('nav.defaultStores')}
           class="rounded-full border px-3 py-2 text-sm hover:bg-[var(--bg)] transition"
           style="border-color: var(--border);">🎯</button>
