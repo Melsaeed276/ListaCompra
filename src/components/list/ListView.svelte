@@ -19,6 +19,7 @@
   import ProductEditor from '../loyalty/ProductEditor.svelte';
   import HoldButton from '../ui/HoldButton.svelte';
   import PhotoZoom from '../ui/PhotoZoom.svelte';
+  import AllItemsButton from './AllItemsButton.svelte';
   import { localeLanguageTag } from '$lib/i18n/locale';
   import { unitLabel } from '$lib/i18n/units';
 
@@ -241,6 +242,7 @@
           </span>
         </div>
         <div class="flex gap-1 shrink-0">
+          <AllItemsButton />
           {#if store.loyalty}
             <button onclick={() => (showLoyalty = true)}
               title={t('list.showLoyalty')}
