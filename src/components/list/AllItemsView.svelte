@@ -1,6 +1,7 @@
 <script lang="ts">
   import ArrowDownAZ from '@lucide/svelte/icons/arrow-down-a-z';
   import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+  import Plus from '@lucide/svelte/icons/plus';
   import Search from '@lucide/svelte/icons/search';
   import StoreIcon from '@lucide/svelte/icons/store';
   import { app } from '$lib/stores/app.svelte';
@@ -10,6 +11,7 @@
   import type { Category, ListItem, Product, Store } from '$lib/types';
   import MenuButton from '../ui/MenuButton.svelte';
   import AllItemsRow from './AllItemsRow.svelte';
+  import QuickAddItemDialog from './QuickAddItemDialog.svelte';
 
   type ViewMode = 'category' | 'store' | 'az';
   type Entry = {
@@ -28,6 +30,7 @@
   let mode = $state<ViewMode>('category');
   let storeFilter = $state('all');
   let query = $state('');
+  let showQuickAdd = $state(false);
 
   const languageTag = $derived(localeLanguageTag(app.state.locale));
   const collator = $derived(new Intl.Collator(languageTag, { sensitivity: 'base' }));
@@ -141,6 +144,16 @@
       <span class="back-arrow">←</span> {t('nav.stores')}
     </a>
     <h1 class="text-xl font-bold truncate ms-1">{t('all.title')}</h1>
+    <button
+      type="button"
+      onclick={() => (showQuickAdd = true)}
+      class="ms-auto shrink-0 h-9 rounded-lg px-3 inline-flex items-center gap-2 text-sm font-semibold text-white transition hover:brightness-95"
+      style="background: var(--accent);"
+      title={t('all.addItem')}
+    >
+      <Plus size={18} aria-hidden="true" />
+      <span class="hidden sm:inline">{t('all.addItem')}</span>
+    </button>
   </header>
 
   <div class="card-elev p-3 space-y-3">
@@ -233,6 +246,13 @@
     {/if}
   {/if}
 </div>
+
+{#if showQuickAdd}
+  <QuickAddItemDialog
+    initialStoreId={storeFilter === 'all' ? undefined : storeFilter}
+    onClose={() => (showQuickAdd = false)}
+  />
+{/if}
 
 <style>
   .mode-active {

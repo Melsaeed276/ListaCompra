@@ -332,10 +332,19 @@ def test_vista_combinada_esta_enrutada_y_localizada():
     assert "type ViewMode = 'category' | 'store' | 'az'" in all_view
     assert "entry.store.id !== storeFilter" in all_view
     assert "entry.category?.name" in all_view
+    assert "<QuickAddItemDialog" in all_view
+
+    quick_add = (ROOT / "src" / "components" / "list" / "QuickAddItemDialog.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "app.addItem(store.id" in quick_add
+    assert "app.createFreeProduct(name, store.typeId)" in quick_add
+    assert "product.storeId === store.id" in quick_add
 
     required_keys = (
         "all.title", "all.openCount", "all.search", "all.byCategory",
         "all.byStore", "all.alphabetical", "all.allStores", "all.completed",
+        "all.addItem", "all.quickAddTitle", "all.chooseStore", "all.createProduct",
     )
     for key in required_keys:
         assert ui.count(f"'{key}'") >= 5, f"{key} no está en todos los diccionarios base"
