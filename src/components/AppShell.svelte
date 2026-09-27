@@ -15,7 +15,7 @@
   import Flag from './ui/Flag.svelte';
   import MenuButton from './ui/MenuButton.svelte';
   import { syncStatus, hydrateAuth, stopSync } from '$lib/sync.svelte';
-  import { resolveLocale, resolveLocaleFromBrowser, LOCALE_LABEL, DEFAULT_LOCALE } from '$lib/i18n/locale';
+  import { resolveLocale, resolveLocaleFromBrowser, LOCALE_LABEL, DEFAULT_LOCALE, localeDirection } from '$lib/i18n/locale';
   import { t } from '$lib/i18n/ui.svelte';
 
   let showDiag = $state(false);
@@ -53,6 +53,10 @@
     // anterior, así que no debe pisar una elección ya guardada.
     if (syncStatus.inHA) {
       app.setLocale(resolveLocale(syncStatus.haLanguage, syncStatus.haCountry));
+    } else if (import.meta.env.DEV) {
+      // Desarrollo local: facilita probar el catálogo turco sin cambiar el
+      // idioma del navegador. El build de Home Assistant no entra aquí.
+      app.setLocale('tr');
     } else if (app.state.locale === undefined && !app.state.profile) {
       // Sin perfil = visita nueva de verdad. `locale === undefined` por sí solo
       // no basta: también lo es para quien ya venía usando la demo, y a ese
@@ -83,6 +87,11 @@
 
   $effect(() => {
     if (app.state.profile?.theme) applyTheme(app.state.profile.theme);
+  });
+
+  $effect(() => {
+    document.documentElement.lang = activeLocale;
+    document.documentElement.dir = localeDirection(activeLocale);
   });
 
   /** Borra los datos locales de este navegador. Si la sync con HA está activa,
@@ -116,7 +125,7 @@
       <div class="flex items-center gap-2 min-w-0">
         <MenuButton />
         <div class="min-w-0">
-        <h1 class="text-2xl font-bold">🛒 Tu Compra</h1>
+        <h1 class="text-2xl font-bold">🛒 {t('nav.marketList')}</h1>
         <p class="text-sm text-muted truncate">{t('nav.greeting', { name: app.state.profile.username })}</p>
         <button onclick={() => (showDiag = true)}
           title={t('sync.status')}

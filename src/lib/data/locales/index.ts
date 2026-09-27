@@ -2,7 +2,7 @@ import type { Category, Product, Store, StoreType } from '../../types';
 import { DEFAULT_LOCALE, type Locale } from '../../i18n/locale';
 import { STORE_TYPES } from '../storeTypes';
 import { CATEGORIES_SEED } from '../categories';
-import { LOCALIZED_STORES } from './stores';
+import { LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from './stores';
 import { LOCALIZED_PRODUCTS } from './products';
 import { TYPE_NAMES, CATEGORY_NAMES } from './labels';
 
@@ -26,4 +26,4 @@ export function getLocalizedSeed(locale: Locale): LocalizedSeed {
   };
 }
 
-export { LOCALIZED_STORES, LOCALIZED_PRODUCTS };
+export { LOCALIZED_STORES, LOCALIZED_PRODUCTS, RETIRED_SEED_STORE_IDS };

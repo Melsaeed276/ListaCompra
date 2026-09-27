@@ -56,6 +56,12 @@ def test_resto_de_idiomas():
     assert routing.resolve_locale("de-CH", None) == "de"
     assert routing.resolve_locale("pt", "BR") == "br"
     assert routing.resolve_locale("pt-BR", None) == "br"
+    assert routing.resolve_locale("tr", "TR") == "tr"
+    assert routing.resolve_locale("tr-TR", None) == "tr"
+    # Árabe usa el catálogo turco traducido, independientemente del país que
+    # reporte HA: está dirigido a hogares arabófonos residentes en Turquía.
+    assert routing.resolve_locale("ar", "TR") == "ar"
+    assert routing.resolve_locale("ar-SY", None) == "ar"
 
 
 def test_idioma_no_soportado_cae_al_ingles():
@@ -225,6 +231,7 @@ def test_el_pan_generico_existe_en_todos_los_idiomas():
         ("es", "ES", "pan", "Pan"), ("en", "GB", "bread", "Bread"),
         ("fr", "FR", "pain", "Pain"), ("de", "DE", "brot", "Brot"),
         ("pt", "BR", "pão", "Pão"),
+        ("tr", "TR", "ekmek", "Ekmek"), ("ar", "TR", "خبز", "خبز"),
     ]:
         res = routing.resolve(termino, snap, routing.catalog_for(cat, lang, cc))
         assert res["product"] is not None, f"{termino!r} no casa en {lang}"
@@ -250,13 +257,57 @@ def test_el_ejemplo_del_readme_existe_en_todos_los_idiomas():
         assert res["product"] is not None, f"{termino!r} no existe en el catálogo {lang}-{cc}"
 
 
-def test_catalogo_exportado_tiene_los_seis_idiomas():
+def test_catalogo_exportado_tiene_todos_los_idiomas():
     path = ROOT / "custom_components" / "tucompra" / "catalog.json"
     if not path.exists():
         return  # no se ha corrido `npm run export:catalog`; en CI sí
     cat = json.loads(path.read_text(encoding="utf-8"))
     assert "locales" in cat, "catalog.json sigue en formato plano (solo español)"
-    for loc in ("es", "en", "us", "fr", "de", "br"):
+    for loc in ("es", "en", "us", "fr", "de", "br", "tr", "ar"):
         assert loc in cat["locales"], f"falta el catálogo de {loc}"
         assert cat["locales"][loc]["products"], f"{loc} sin productos"
         assert cat["locales"][loc]["stores"], f"{loc} sin tiendas"
+
+
+def test_catalogos_de_turkiye_excluyen_alcohol_y_tiendas_que_lo_venden():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+    forbidden_store_suffixes = {"migros", "carrefoursa", "macrocenter", "metro", "bufe"}
+    forbidden_terms = {
+        "alkol", "bira", "şarap", "içki", "rakı", "viski", "votka", "tekila", "likör",
+        "كحول", "بيرة", "نبيذ", "مشروب عرق", "ويسكي", "فودكا",
+    }
+
+    for loc in ("tr", "ar"):
+        stores = cat["locales"][loc]["stores"]
+        assert not any(
+            store["id"].removeprefix(f"{loc}-") in forbidden_store_suffixes
+            for store in stores
+        )
+
+        product_text = " ".join(
+            f'{product["id"]} {product["name"]}'.lower()
+            for product in cat["locales"][loc]["products"]
+        )
+        assert not any(term in product_text for term in forbidden_terms)
+
+
+def test_catalogos_de_turkiye_incluyen_el_pazar_semanal():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+
+    for loc in ("tr", "ar"):
+        pazar_id = f"{loc}-pazar"
+        stores = cat["locales"][loc]["stores"]
+        assert any(store["id"] == pazar_id for store in stores)
+
+        pazar_products = [
+            product for product in cat["locales"][loc]["products"]
+            if product.get("storeId") == pazar_id
+        ]
+        assert len(pazar_products) == 14
+        assert all(product["categoryId"] == "sup-otros" for product in pazar_products)

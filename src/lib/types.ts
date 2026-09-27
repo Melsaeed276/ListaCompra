@@ -122,7 +122,7 @@ export interface AppState {
   /** Locale del catálogo (tiendas/productos/idioma de nombres). Se deriva del
    *  idioma/país de Home Assistant, o del navegador fuera de él. Si el idioma no
    *  es ninguno de los soportados, DEFAULT_LOCALE ('en'). */
-  locale?: 'es' | 'en' | 'us' | 'fr' | 'de' | 'br';
+  locale?: 'es' | 'en' | 'us' | 'fr' | 'de' | 'br' | 'tr' | 'ar';
   /** Icono elegido por el usuario para un producto, incluidos los del seed.
    *
    *  Vive APARTE de `products` porque refreshSeed() reemplaza el seed entero en

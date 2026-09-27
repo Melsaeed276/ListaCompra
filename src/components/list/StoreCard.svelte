@@ -40,7 +40,7 @@
       style={badgeStyle}
     >
       {#if isImage}
-        <img src={imgSrc} alt={store.name} class="max-h-16 max-w-[72px] object-contain" />
+        <img src={imgSrc} alt={store.name} class="h-16 w-[72px] object-contain" />
       {:else if store.brand?.initials}
         <span class="text-2xl tracking-tight leading-none">{store.brand.initials}</span>
       {:else if store.icon.kind === 'emoji'}
@@ -58,7 +58,7 @@
     </div>
 
     {#if pending > 0}
-      <span class="absolute top-2 left-2 size-5 rounded-full text-[10px] font-bold grid place-items-center"
+      <span class="absolute top-2 start-2 size-5 rounded-full text-[10px] font-bold grid place-items-center"
         style="background: var(--accent); color: white;">
         {pending}
       </span>
@@ -70,7 +70,7 @@
     type="button"
     onclick={handleEdit}
     title={t('stores.editStore')}
-    class="absolute top-1.5 right-1.5 size-7 rounded-full grid place-items-center text-base font-bold shadow-sm hover:scale-110 transition"
+    class="absolute top-1.5 end-1.5 size-7 rounded-full grid place-items-center text-base font-bold shadow-sm hover:scale-110 transition"
     style="background: var(--bg-elev); color: var(--fg-muted); border: 1px solid var(--border);"
   >⋯</button>
 </div>

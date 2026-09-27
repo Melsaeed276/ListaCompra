@@ -44,6 +44,10 @@ def resolve_locale(language: str | None, country: str | None) -> str:
         return "fr"
     if lang == "pt":
         return "br"
+    if lang == "tr":
+        return "tr"
+    if lang == "ar":
+        return "ar"
     if lang == "en":
         return "us" if cc == "US" else "en"
     # Cooficiales de España: el catálogo español es el que les sirve.

@@ -149,7 +149,7 @@
         <div class="size-16 rounded-2xl grid place-items-center font-extrabold shadow-sm overflow-hidden"
           style="background:{bg};color:{fg};">
           {#if iconKind === 'image' && iconImage}
-            <img src={iconImage} alt="" class="max-h-12 max-w-[56px] object-contain" />
+            <img src={iconImage} alt="" class="h-12 w-14 object-contain" />
           {:else if initials}
             <span class="text-xl">{initials}</span>
           {:else}

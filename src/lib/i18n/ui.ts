@@ -9,10 +9,13 @@
 // que esto no se pudra en cuanto se añada una cadena nueva.
 
 import { DEFAULT_LOCALE, type Locale } from './locale';
+import { AR } from './ui.ar';
+import { TR } from './ui.tr';
 
 const ES = {
   // --- Navegación / cabecera ---
   'nav.stores': 'Tiendas',
+  'nav.marketList': 'Lista de mercados',
   'nav.greeting': 'Hola, {name}',
   'nav.defaultStores': 'Tiendas por defecto (enrutado por voz)',
   'nav.signOut': 'Cerrar sesión y borrar datos del navegador',
@@ -259,6 +262,7 @@ type Dict = Record<UIKey, string>;
 
 const EN: Dict = {
   'nav.stores': 'Shops',
+  'nav.marketList': 'Market List',
   'nav.greeting': 'Hi, {name}',
   'nav.defaultStores': 'Default shops (voice routing)',
   'nav.signOut': 'Sign out and delete this browser’s data',
@@ -496,6 +500,7 @@ const EN: Dict = {
 const US: Dict = {
   ...EN,
   'nav.stores': 'Stores',
+  'nav.marketList': 'Market List',
   'nav.defaultStores': 'Default stores (voice routing)',
   'stores.add': 'Add a store',
   'stores.new': 'New store',
@@ -518,6 +523,7 @@ const US: Dict = {
 
 const FR: Dict = {
   'nav.stores': 'Magasins',
+  'nav.marketList': 'Liste des marchés',
   'nav.greeting': 'Bonjour, {name}',
   'nav.defaultStores': 'Magasins par défaut (routage vocal)',
   'nav.signOut': 'Se déconnecter et effacer les données du navigateur',
@@ -753,6 +759,7 @@ const FR: Dict = {
 
 const DE: Dict = {
   'nav.stores': 'Läden',
+  'nav.marketList': 'Marktliste',
   'nav.greeting': 'Hallo, {name}',
   'nav.defaultStores': 'Standardläden (Sprachsteuerung)',
   'nav.signOut': 'Abmelden und Browserdaten löschen',
@@ -988,6 +995,7 @@ const DE: Dict = {
 
 const BR: Dict = {
   'nav.stores': 'Lojas',
+  'nav.marketList': 'Lista de mercados',
   'nav.greeting': 'Olá, {name}',
   'nav.defaultStores': 'Lojas padrão (roteamento por voz)',
   'nav.signOut': 'Sair e apagar os dados do navegador',
@@ -1221,7 +1229,9 @@ const BR: Dict = {
   'sync.status': 'Ver o status da sincronização',
 };
 
-const UI: Record<Locale, Dict> = { es: ES, en: EN, us: US, fr: FR, de: DE, br: BR };
+const UI: Record<Locale, Dict> = {
+  es: ES, en: EN, us: US, fr: FR, de: DE, br: BR, tr: TR, ar: AR,
+};
 
 /** Traduce una clave al locale dado. `{var}` se sustituye por `vars.var`. */
 export function translate(

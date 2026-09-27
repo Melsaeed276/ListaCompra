@@ -19,6 +19,8 @@
   import ProductEditor from '../loyalty/ProductEditor.svelte';
   import HoldButton from '../ui/HoldButton.svelte';
   import PhotoZoom from '../ui/PhotoZoom.svelte';
+  import { localeLanguageTag } from '$lib/i18n/locale';
+  import { unitLabel } from '$lib/i18n/units';
 
   let { storeId }: { storeId: string } = $props();
 
@@ -51,7 +53,7 @@
     const aOtros = /^otros$/i.test(a.name.trim());
     const bOtros = /^otros$/i.test(b.name.trim());
     if (aOtros !== bOtros) return aOtros ? 1 : -1;
-    return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    return a.name.localeCompare(b.name, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
   };
 
   // Cuántos productos "habituales" mostramos cuando no hay búsqueda.
@@ -134,11 +136,13 @@
         items: items.slice().sort((a, b) => {
           const pa = app.state.products.find((p) => p.id === a.productId)?.name ?? '';
           const pb = app.state.products.find((p) => p.id === b.productId)?.name ?? '';
-          return pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+          return pa.localeCompare(pb, localeLanguageTag(app.state.locale), { sensitivity: 'base' });
         }),
       }))
       .sort((a, b) =>
-        (a.category?.name ?? '~').localeCompare(b.category?.name ?? '~', 'es', { sensitivity: 'base' }),
+        (a.category?.name ?? '~').localeCompare(
+          b.category?.name ?? '~', localeLanguageTag(app.state.locale), { sensitivity: 'base' },
+        ),
       );
   });
 
@@ -225,7 +229,7 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 min-w-0">
           <MenuButton />
-          <a href="#/" class="text-sm text-muted hover:underline shrink-0">← {t('nav.stores')}</a>
+          <a href="#/" class="text-sm text-muted hover:underline shrink-0"><span class="back-arrow">←</span> {t('nav.stores')}</a>
           <span class="font-semibold flex items-center gap-1 min-w-0">
             {#if store.icon.kind === 'image'}
               <img src={store.icon.value.startsWith('data:') ? store.icon.value : base(store.icon.value)}
@@ -355,7 +359,7 @@
 
     {#if isInbox && list.items.length > 0}
       <div class="card-elev p-3 text-sm flex items-start gap-2"
-        style="border-left: 3px solid var(--accent);">
+        style="border-inline-start: 3px solid var(--accent);">
         <span class="text-lg leading-none">📥</span>
         <span>{t('list.inboxHint')} {t('list.moveHint')}</span>
       </div>
@@ -373,7 +377,7 @@
             <h3 class="font-semibold mb-3 flex items-center gap-2">
               <span>{group.category?.icon.kind === 'emoji' ? group.category.icon.value : '📁'}</span>
               {group.category?.name ?? t('list.noCategory')}
-              <span class="text-xs text-muted ml-auto">{group.items.length}</span>
+              <span class="text-xs text-muted ms-auto">{group.items.length}</span>
             </h3>
             <ul class="divide-y" style="border-color: var(--border);">
               {#each group.items as item (item.id)}
@@ -412,7 +416,7 @@
                         onchange={(e) => app.setItemUnit(storeId, item.id, e.currentTarget.value as Unit)}
                         class="text-xs rounded-md border px-1.5 py-0.5 bg-transparent"
                         style="border-color: var(--border);">
-                        {#each UNITS as u}<option value={u}>{u}</option>{/each}
+                        {#each UNITS as u}<option value={u}>{unitLabel(u, app.state.locale)}</option>{/each}
                       </select>
                     </div>
                   </div>
@@ -431,7 +435,7 @@
                     class="text-muted hover:text-red-500 text-2xl shrink-0" title={t('list.remove')}>×</button>
 
                   {#if movingItemId === item.id}
-                    <div class="basis-full mt-2 flex items-center gap-2 flex-wrap pl-12">
+                    <div class="basis-full mt-2 flex items-center gap-2 flex-wrap ps-12">
                       <span class="text-xs text-muted">{t('list.moveTo')}</span>
                       {#if sug}
                         <button onclick={() => moveTo(item.id, sug.id)}
@@ -491,5 +495,9 @@
     color: white;
     border-color: var(--accent) !important;
     box-shadow: 0 4px 12px -4px var(--accent);
+  }
+  :global(html[dir='rtl']) .back-arrow {
+    display: inline-block;
+    transform: scaleX(-1);
   }
 </style>
