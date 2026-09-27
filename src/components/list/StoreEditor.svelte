@@ -74,6 +74,7 @@
   let bg = $state(store?.brand?.bg ?? '#2aa063');
   let fg = $state(store?.brand?.fg ?? '#FFFFFF');
   let initials = $state(store?.brand?.initials ?? '');
+  let online = $state(store?.online ?? false);
   let error = $state('');
   let capturing = $state(false);
   let cropping = $state(false);
@@ -118,6 +119,7 @@
       order: store?.order ?? app.state.stores.length,
       enabled: true,
       edited: true,    // marca para que refreshSeed no la sobreescriba
+      online,
       loyalty: loyaltyCode.trim()
         ? { code: loyaltyCode.trim(), format: loyaltyFormat }
         : undefined,
@@ -180,6 +182,15 @@
             </option>
           {/each}
         </select>
+      </label>
+
+      <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer"
+        style="border-color: var(--border);">
+        <input type="checkbox" bind:checked={online} class="mt-0.5" />
+        <span class="text-sm">
+          <strong>{t('store.online')}</strong>
+          <span class="block text-xs text-muted">{t('store.onlineNote')}</span>
+        </span>
       </label>
 
       <fieldset class="rounded-xl border p-3 space-y-2" style="border-color: var(--border);">
