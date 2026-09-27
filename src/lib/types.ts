@@ -3,6 +3,7 @@
 // cada Tienda concreta apunta a un TipoTienda (Eroski → Supermercado, etc.).
 
 export type Unit = 'unidad' | 'kg' | 'g' | 'l' | 'ml' | 'paquete' | 'docena' | 'caja';
+export type ItemPriority = 'low' | 'normal' | 'high';
 
 export type IconRef =
   | { kind: 'emoji'; value: string }            // p.ej. "🥩"
@@ -45,6 +46,8 @@ export interface Store {
   edited?: boolean;
   /** Tarjeta de fidelización de esta tienda (opcional). */
   loyalty?: LoyaltyCard;
+  /** Enables product-page links for this store's shopping-list items. */
+  online?: boolean;
 }
 
 /** Categoría dentro de un tipo de tienda */
@@ -82,6 +85,9 @@ export interface ListItem {
   unit: Unit;
   done: boolean;
   note?: string;
+  priority?: ItemPriority;
+  /** Optional product page for online-store list items. */
+  url?: string;
   addedAt: number;             // timestamp
   doneAt?: number;
 }

@@ -50,6 +50,7 @@ class AppStore {
     const editedSeedStores = this.state.stores.filter(
       (s) => seedStoreIds.has(s.id) && s.edited,
     );
+    const seedById = new Map(seed.stores.map((s) => [s.id, s]));
     const editedSeedIds = new Set(editedSeedStores.map((s) => s.id));
 
     this.state.stores = [
@@ -59,7 +60,10 @@ class AppStore {
           const local = localById.get(s.id);
           return { ...s, order: local?.order ?? s.order, enabled: local?.enabled ?? s.enabled };
         }),
-      ...editedSeedStores,
+      ...editedSeedStores.map((s) => ({
+        ...s,
+        online: s.online ?? seedById.get(s.id)?.online,
+      })),
       ...customStores,
     ];
 
@@ -367,6 +371,39 @@ class AppStore {
     const it = list.items.find((i) => i.id === itemId);
     if (!it) return;
     it.unit = unit;
+    list.updatedAt = Date.now();
+    this.persist();
+  }
+
+  setItemUrl(storeId: string, itemId: string, url?: string): void {
+    const list = this.state.lists[storeId];
+    if (!list) return;
+    const it = list.items.find((i) => i.id === itemId);
+    if (!it) return;
+    if (url) it.url = url;
+    else delete it.url;
+    list.updatedAt = Date.now();
+    this.persist();
+  }
+
+  setItemDetails(
+    storeId: string,
+    itemId: string,
+    details: Pick<ListItem, 'note' | 'priority'> & Partial<Pick<ListItem, 'url'>>,
+  ): void {
+    const list = this.state.lists[storeId];
+    if (!list) return;
+    const it = list.items.find((i) => i.id === itemId);
+    if (!it) return;
+    const note = details.note?.trim();
+    if (note) it.note = note;
+    else delete it.note;
+    if (details.priority && details.priority !== 'normal') it.priority = details.priority;
+    else delete it.priority;
+    if ('url' in details) {
+      if (details.url) it.url = details.url;
+      else delete it.url;
+    }
     list.updatedAt = Date.now();
     this.persist();
   }

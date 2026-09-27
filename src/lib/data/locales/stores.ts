@@ -9,10 +9,12 @@ import { STORES_SEED } from '../stores';
 const s = (
   id: string, name: string, typeId: string,
   emoji: string, bg: string, fg: string, initials?: string, logo?: string,
+  online = false,
 ): Store => ({
   id, name, typeId,
   icon: logo ? { kind: 'image', value: logo } : { kind: 'emoji', value: emoji },
   brand: { bg, fg, initials },
+  ...(online ? { online: true } : {}),
 });
 
 // Tiendas retiradas del catálogo de Türkiye por vender alcohol (o, en el caso
@@ -132,6 +134,7 @@ const TR: Store[] = [
   s('tr-bim',          'BİM',            'supermercado', '🛒', '#FFFFFF', '#0054A6', 'BİM', '/logos/bim.svg'),
   s('tr-sok',          'ŞOK',            'supermercado', '🛒', '#FFD500', '#E30613', 'ŞOK', '/logos/sok.svg'),
   s('tr-hakmar',       'Hakmar',         'supermercado', '🛒', '#FFFFFF', '#4DBA45', 'H', '/logos/hakmar.png'),
+  s('tr-trendyol',     'Trendyol',       'supermercado', '🛍️', '#F27A1A', '#FFFFFF', 'T', '/logos/trendyol.svg', true),
   s('tr-pazar',        'Pazar',          'supermercado', '🧺', '#2F855A', '#FFFFFF'),
   s('tr-kasap',        'Kasap',          'carniceria',   '🥩', '#8B1E1E', '#FFFFFF'),
   s('tr-balikci',      'Balıkçı',        'pescaderia',   '🐟', '#0E6BA8', '#FFFFFF'),
@@ -148,6 +151,7 @@ const AR: Store[] = [
   s('ar-bim',          'BİM',            'supermercado', '🛒', '#FFFFFF', '#0054A6', 'BİM', '/logos/bim.svg'),
   s('ar-sok',          'ŞOK',            'supermercado', '🛒', '#FFD500', '#E30613', 'ŞOK', '/logos/sok.svg'),
   s('ar-hakmar',       'Hakmar',         'supermercado', '🛒', '#FFFFFF', '#4DBA45', 'H', '/logos/hakmar.png'),
+  s('ar-trendyol',     'Trendyol',       'supermercado', '🛍️', '#F27A1A', '#FFFFFF', 'T', '/logos/trendyol.svg', true),
   s('ar-pazar',        'السوق الأسبوعي', 'supermercado', '🧺', '#2F855A', '#FFFFFF'),
   s('ar-kasap',        'الملحمة',        'carniceria',   '🥩', '#8B1E1E', '#FFFFFF'),
   s('ar-balikci',      'متجر الأسماك',   'pescaderia',   '🐟', '#0E6BA8', '#FFFFFF'),

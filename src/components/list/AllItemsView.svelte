@@ -74,7 +74,7 @@
     return entries.filter((entry) => {
       if (storeFilter !== 'all' && entry.store.id !== storeFilter) return false;
       if (!needle) return true;
-      return [entry.product?.name, entry.store.name, entry.category?.name]
+      return [entry.product?.name, entry.store.name, entry.category?.name, entry.item.note]
         .some((value) => value && norm(value).includes(needle));
     });
   });
@@ -83,6 +83,10 @@
   const completed = $derived(filtered.filter((entry) => entry.item.done));
 
   function itemSort(a: Entry, b: Entry) {
+    const priorityRank = (item: ListItem) =>
+      item.priority === 'high' ? 0 : item.priority === 'low' ? 2 : 1;
+    const byPriority = priorityRank(a.item) - priorityRank(b.item);
+    if (byPriority !== 0) return byPriority;
     const byProduct = collator.compare(a.product?.name ?? '', b.product?.name ?? '');
     return byProduct || collator.compare(a.store.name, b.store.name);
   }

@@ -332,7 +332,15 @@ def test_vista_combinada_esta_enrutada_y_localizada():
     assert "type ViewMode = 'category' | 'store' | 'az'" in all_view
     assert "entry.store.id !== storeFilter" in all_view
     assert "entry.category?.name" in all_view
+    assert "entry.item.note" in all_view
+    assert "priorityRank(a.item)" in all_view
     assert "<QuickAddItemDialog" in all_view
+
+    all_row = (ROOT / "src" / "components" / "list" / "AllItemsRow.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "{item.note}" in all_row
+    assert "item.priority === 'high'" in all_row
 
     quick_add = (ROOT / "src" / "components" / "list" / "QuickAddItemDialog.svelte").read_text(
         encoding="utf-8"
@@ -348,5 +356,103 @@ def test_vista_combinada_esta_enrutada_y_localizada():
     )
     for key in required_keys:
         assert ui.count(f"'{key}'") >= 5, f"{key} no está en todos los diccionarios base"
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar
+
+
+def test_catalogos_de_turkiye_incluyen_trendyol():
+    path = ROOT / "custom_components" / "tucompra" / "catalog.json"
+    if not path.exists():
+        return  # no se ha corrido `npm run export:catalog`; en CI sí
+    cat = json.loads(path.read_text(encoding="utf-8"))
+
+    for loc in ("tr", "ar"):
+        stores = cat["locales"][loc]["stores"]
+        trendyol = next((store for store in stores if store["id"] == f"{loc}-trendyol"), None)
+        assert trendyol is not None
+        assert trendyol["name"] == "Trendyol"
+        assert trendyol["typeId"] == "supermercado"
+
+    logo = ROOT / "public" / "logos" / "trendyol.svg"
+    assert logo.exists()
+    assert "<svg" in logo.read_text(encoding="utf-8")
+
+
+def test_tiendas_online_permiten_guardar_enlaces_de_producto():
+    types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+    store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")
+    view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "url?: string" in types
+    assert "setItemUrl(storeId" in store
+    assert "const isOnlineStore = $derived(!!store?.online)" in view
+    assert "rel=\"noopener noreferrer\"" in view
+
+    link_helper = (ROOT / "src" / "lib" / "product-link.ts").read_text(encoding="utf-8")
+    editor = (ROOT / "src" / "components" / "loyalty" / "ProductEditor.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "url.protocol === 'http:' || url.protocol === 'https:'" in link_helper
+    assert "itemId?: string" in editor
+    assert "app.setItemDetails(storeId, itemId" in editor
+    assert "t('list.productLink')" in editor
+    assert "showLinkField = $state(!!productUrl)" in editor
+    assert "t('list.addProductLink')" in editor
+
+    for key in ("list.addProductLink", "list.productLink", "list.saveLink", "list.invalidLink"):
+        assert ui.count(f"'{key}'") >= 5
+        assert f"'{key}'" in ui_tr
+        assert f"'{key}'" in ui_ar
+
+
+def test_detalles_de_producto_y_tiendas_online_genericas():
+    types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+    store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")
+    list_view = (ROOT / "src" / "components" / "list" / "ListView.svelte").read_text(
+        encoding="utf-8"
+    )
+    product_editor = (
+        ROOT / "src" / "components" / "loyalty" / "ProductEditor.svelte"
+    ).read_text(encoding="utf-8")
+    store_editor = (ROOT / "src" / "components" / "list" / "StoreEditor.svelte").read_text(
+        encoding="utf-8"
+    )
+    stores = (ROOT / "src" / "lib" / "data" / "locales" / "stores.ts").read_text(
+        encoding="utf-8"
+    )
+    ui = (ROOT / "src" / "lib" / "i18n" / "ui.ts").read_text(encoding="utf-8")
+    ui_tr = (ROOT / "src" / "lib" / "i18n" / "ui.tr.ts").read_text(encoding="utf-8")
+    ui_ar = (ROOT / "src" / "lib" / "i18n" / "ui.ar.ts").read_text(encoding="utf-8")
+
+    assert "export type ItemPriority = 'low' | 'normal' | 'high'" in types
+    assert "online?: boolean" in types
+    assert "setItemDetails(" in store
+    assert "priorityRank(a.priority)" in list_view
+    assert "{item.note}" in list_view
+    assert "const isOnlineStore = $derived(!!store?.online)" in list_view
+    assert "bind:checked={online}" in store_editor
+    assert "t('store.online')" in store_editor
+    assert "t('list.productNote')" in product_editor
+    assert "t('list.priority')" in product_editor
+    assert "const isOnlineItem" in product_editor
+    assert stores.count("'/logos/trendyol.svg', true") == 2
+
+    keys = (
+        "list.productNote",
+        "list.productNotePlaceholder",
+        "list.priority",
+        "list.priority.low",
+        "list.priority.normal",
+        "list.priority.high",
+        "store.online",
+        "store.onlineNote",
+    )
+    for key in keys:
+        assert ui.count(f"'{key}'") >= 5
         assert f"'{key}'" in ui_tr
         assert f"'{key}'" in ui_ar

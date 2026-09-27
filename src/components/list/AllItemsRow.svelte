@@ -42,7 +42,19 @@
   <ProductIcon {product} px={30} />
 
   <div class="flex-1 min-w-[9rem]">
-    <div class="product-name font-medium truncate">{productName}</div>
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="product-name font-medium truncate">{productName}</div>
+      {#if item.priority === 'high'}
+        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          style="background: #fee2e2; color: #b91c1c;">↑ {t('list.priority.high')}</span>
+      {:else if item.priority === 'low'}
+        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          style="background: var(--bg); color: var(--muted);">↓ {t('list.priority.low')}</span>
+      {/if}
+    </div>
+    {#if item.note}
+      <p class="mt-0.5 line-clamp-2 text-xs text-muted">{item.note}</p>
+    {/if}
     <a
       href={`#/lista/${encodeURIComponent(store.id)}`}
       title={t('all.openStore', { store: store.name })}
