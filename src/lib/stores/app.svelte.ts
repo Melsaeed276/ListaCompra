@@ -1,8 +1,8 @@
 // Store global con Svelte 5 runes. Una única fuente de verdad para toda la app.
 // Se hidrata desde LocalStorage al iniciar y se autoguarda al cambiar.
 
-import type { AppState, IconRef, ListItem, Product, ShoppingList, Store, UserProfile } from '../types';
-import { createInitialState, loadState, saveState } from '../storage';
+import type { AppState, Category, Company, IconRef, ListItem, Product, ShoppingList, Store, UserProfile } from '../types';
+import { COMPANY_SEED_VERSION, createInitialState, DEFAULT_COMPANIES, loadState, saveState } from '../storage';
 import { getLocalizedSeed, LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from '../data/locales';
 import { DEFAULT_LOCALE, LOCALES, type Locale } from '../i18n/locale';
 
@@ -70,7 +70,14 @@ class AppStore {
     // Categorías y productos: refresco completo del seed localizado; preservamos
     // los custom (categorías no-seed, productos con prefijo custom-).
     const customCategories = this.state.categories.filter((c) => !seedCategoryIds.has(c.id));
-    this.state.categories = [...seed.categories, ...customCategories];
+    const categoryOverrides = this.state.categoryOverrides ?? {};
+    this.state.categories = [
+      ...seed.categories.map((category) => ({
+        ...category,
+        ...(categoryOverrides[category.id] ?? {}),
+      })),
+      ...customCategories,
+    ];
 
     const customProducts = this.state.products.filter((p) => p.id.startsWith('custom-'));
     this.state.products = [...seed.products, ...customProducts];
@@ -97,6 +104,11 @@ class AppStore {
     this.persist();
   }
 
+  /** Re-applies seed data after synchronized catalog metadata changes. */
+  refreshCatalog(): void {
+    this.refreshSeed();
+  }
+
   /** ¿Tiene este producto un icono puesto por el usuario? */
   hasCustomIcon(id: Product['id']): boolean {
     return !!this.state.productIcons?.[id];
@@ -113,6 +125,7 @@ class AppStore {
   hydrate(): void {
     if (this.hydrated) return;
     this.state = loadState();
+    this.ensureCompanySeed();
     this.refreshSeed();
     this.hydrated = true;
     saveState(this.state);
@@ -161,6 +174,67 @@ class AppStore {
       }
     }
     this.persist();
+  }
+
+  // -------- Companies and categories --------
+  ensureCompanySeed(): void {
+    if ((this.state.companySeedVersion ?? 0) >= COMPANY_SEED_VERSION) return;
+    const existing = new Set((this.state.companies ?? []).map((company) => company.id));
+    this.state.companies ??= [];
+    this.state.companies.push(
+      ...DEFAULT_COMPANIES.filter((company) => !existing.has(company.id)).map((company) => ({ ...company })),
+    );
+    this.state.companySeedVersion = COMPANY_SEED_VERSION;
+  }
+
+  upsertCompany(company: Company): void {
+    this.state.companies ??= [];
+    const clean = { ...company, name: company.name.trim() };
+    const index = this.state.companies.findIndex((candidate) => candidate.id === company.id);
+    if (index >= 0) this.state.companies[index] = clean;
+    else this.state.companies.push(clean);
+    this.persist();
+  }
+
+  removeCompany(id: string): void {
+    this.state.companies = (this.state.companies ?? []).filter((company) => company.id !== id);
+    for (const [productId, companyId] of Object.entries(this.state.productCompanies ?? {})) {
+      if (companyId === id) delete this.state.productCompanies![productId];
+    }
+    this.persist();
+  }
+
+  setProductCompany(productId: string, companyId?: string): void {
+    this.state.productCompanies ??= {};
+    if (companyId) this.state.productCompanies[productId] = companyId;
+    else delete this.state.productCompanies[productId];
+    this.persist();
+  }
+
+  upsertCategory(category: Category): void {
+    const seed = getLocalizedSeed(this.state.locale ?? DEFAULT_LOCALE);
+    const isSeed = seed.categories.some((candidate) => candidate.id === category.id);
+    if (isSeed) {
+      this.state.categoryOverrides ??= {};
+      this.state.categoryOverrides[category.id] = {
+        name: category.name.trim(),
+        icon: category.icon,
+      };
+      this.refreshSeed();
+    } else {
+      const index = this.state.categories.findIndex((candidate) => candidate.id === category.id);
+      if (index >= 0) this.state.categories[index] = category;
+      else this.state.categories.push(category);
+    }
+    this.persist();
+  }
+
+  removeCategory(id: string): boolean {
+    if (this.state.products.some((product) => product.categoryId === id)) return false;
+    this.state.categories = this.state.categories.filter((category) => category.id !== id);
+    if (this.state.categoryOverrides) delete this.state.categoryOverrides[id];
+    this.persist();
+    return true;
   }
 
   // -------- Tienda por defecto por tipo (enrutado por voz) --------

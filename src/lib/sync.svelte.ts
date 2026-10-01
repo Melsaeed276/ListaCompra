@@ -11,9 +11,9 @@
 // modo local puro (LocalStorage) y la sync queda deshabilitada.
 
 import { app } from './stores/app.svelte';
-import type { ShoppingList, Product, Store } from './types';
-import { LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from './data/locales';
-import { LOCALES } from './i18n/locale';
+import type { AppState, Category, Company, ShoppingList, Product, Store } from './types';
+import { getLocalizedSeed, LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from './data/locales';
+import { DEFAULT_LOCALE, LOCALES } from './i18n/locale';
 
 // IDs de tienda de todos los locales: distingue seed (de cualquier idioma) de
 // tienda custom del usuario, para no sincronizar el seed como si fuera custom.
@@ -29,6 +29,11 @@ interface SyncSnapshot {
   customProducts: Product[];
   customStores: Store[];
   defaultStores?: Record<string, string>;
+  companies?: Company[];
+  companySeedVersion?: number;
+  customCategories?: Category[];
+  categoryOverrides?: AppState['categoryOverrides'];
+  productCompanies?: AppState['productCompanies'];
   updatedAt: number;
 }
 
@@ -146,6 +151,15 @@ function buildSnapshot(): SyncSnapshot {
     customProducts: products.filter((p) => p.id.startsWith('custom-')),
     customStores: stores.filter((s) => !ALL_SEED_STORE_IDS.has(s.id) || s.edited),
     defaultStores: app.state.defaultStores,
+    companies: app.state.companies,
+    companySeedVersion: app.state.companySeedVersion,
+    customCategories: app.state.categories.filter(
+      (category) => !getLocalizedSeed(app.state.locale ?? DEFAULT_LOCALE).categories.some(
+        (seedCategory) => seedCategory.id === category.id,
+      ),
+    ),
+    categoryOverrides: app.state.categoryOverrides,
+    productCompanies: app.state.productCompanies,
     updatedAt: Date.now(),
   };
 }
@@ -165,6 +179,19 @@ function applySnapshot(snap: SyncSnapshot): void {
   const seedProducts = app.state.products.filter((p) => !p.id.startsWith('custom-'));
   app.state.products = [...seedProducts, ...(snap.customProducts ?? [])];
 
+  const seedCategoryIds = new Set(
+    getLocalizedSeed(app.state.locale ?? DEFAULT_LOCALE).categories.map((category) => category.id),
+  );
+  app.state.categories = [
+    ...app.state.categories.filter((category) => seedCategoryIds.has(category.id)),
+    ...(snap.customCategories ?? []),
+  ];
+  if (snap.companies) app.state.companies = snap.companies;
+  app.state.companySeedVersion = snap.companySeedVersion;
+  app.ensureCompanySeed();
+  app.state.categoryOverrides = snap.categoryOverrides ?? {};
+  app.state.productCompanies = snap.productCompanies ?? {};
+
   const localUntouched = app.state.stores.filter(
     (s) => ALL_SEED_STORE_IDS.has(s.id) && !s.edited,
   );
@@ -181,6 +208,7 @@ function applySnapshot(snap: SyncSnapshot): void {
     );
   }
 
+  app.refreshCatalog();
   app.persistLocalOnly();
   syncStatus.lastSyncAt = Date.now();
   lastAppliedAt = snap.updatedAt;
