@@ -11,17 +11,18 @@
   import ListView from './list/ListView.svelte';
   import AllItemsButton from './list/AllItemsButton.svelte';
   import AllItemsView from './list/AllItemsView.svelte';
-  import ThemeToggle from './ui/ThemeToggle.svelte';
   import SyncDiag from './ui/SyncDiag.svelte';
   import DefaultStores from './ui/DefaultStores.svelte';
-  import Flag from './ui/Flag.svelte';
   import MenuButton from './ui/MenuButton.svelte';
+  import SettingsDialog from './ui/SettingsDialog.svelte';
+  import Settings from '@lucide/svelte/icons/settings';
   import { syncStatus, hydrateAuth, stopSync } from '$lib/sync.svelte';
-  import { resolveLocale, resolveLocaleFromBrowser, LOCALE_LABEL, DEFAULT_LOCALE, localeDirection } from '$lib/i18n/locale';
+  import { resolveLocale, resolveLocaleFromBrowser, DEFAULT_LOCALE, localeDirection } from '$lib/i18n/locale';
   import { t } from '$lib/i18n/ui.svelte';
 
   let showDiag = $state(false);
   let showDefaults = $state(false);
+  let showSettings = $state(false);
 
   // Locale efectivo (catálogo cargado) → determina la bandera SVG mostrada.
   const activeLocale = $derived(app.state.locale ?? DEFAULT_LOCALE);
@@ -159,20 +160,9 @@
         <button onclick={() => (showDefaults = true)} title={t('nav.defaultStores')}
           class="rounded-full border px-3 py-2 text-sm hover:bg-[var(--bg)] transition"
           style="border-color: var(--border);">🎯</button>
-        <button onclick={signOut} title={t('nav.signOut')}
-          class="rounded-full border px-3 py-2 text-sm hover:bg-[var(--bg)] transition"
-          style="border-color: var(--border);">🚪</button>
-        <ThemeToggle />
-        <!-- La bandera refleja el catálogo cargado, venga de HA o del navegador:
-             fuera de HA también hay cultura activa, y ocultarla ahí hacía parecer
-             que la demo no tenía idioma. -->
-        <span title={syncStatus.inHA
-          ? t('nav.haLanguage', {
-              lang: `${syncStatus.haLanguage || activeLocale}${syncStatus.haCountry ? '-' + syncStatus.haCountry : ''}`,
-            })
-          : t('nav.catalogHint', { label: LOCALE_LABEL[activeLocale] })}>
-          <Flag locale={activeLocale} />
-        </span>
+        <button onclick={() => (showSettings = true)} title={t('settings.title')}
+          class="size-10 rounded-full border grid place-items-center hover:bg-[var(--bg)] transition"
+          style="border-color: var(--border);"><Settings size={19} /></button>
       </div>
     </header>
     <StoreGrid />
@@ -183,5 +173,8 @@
   {/if}
   {#if showDefaults}
     <DefaultStores onClose={() => (showDefaults = false)} />
+  {/if}
+  {#if showSettings}
+    <SettingsDialog onClose={() => (showSettings = false)} onSignOut={signOut} />
   {/if}
 {/if}

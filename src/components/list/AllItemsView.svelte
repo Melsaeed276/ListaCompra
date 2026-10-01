@@ -4,31 +4,35 @@
   import Plus from '@lucide/svelte/icons/plus';
   import Search from '@lucide/svelte/icons/search';
   import StoreIcon from '@lucide/svelte/icons/store';
+  import Building2 from '@lucide/svelte/icons/building-2';
   import { app } from '$lib/stores/app.svelte';
   import { t } from '$lib/i18n/ui.svelte';
   import { localeLanguageTag } from '$lib/i18n/locale';
   import { norm } from '$lib/search';
-  import type { Category, ListItem, Product, Store } from '$lib/types';
+  import type { Category, Company, IconRef, ListItem, Product, Store } from '$lib/types';
   import MenuButton from '../ui/MenuButton.svelte';
   import AllItemsRow from './AllItemsRow.svelte';
   import QuickAddItemDialog from './QuickAddItemDialog.svelte';
+  import IconDisplay from '../ui/IconDisplay.svelte';
 
-  type ViewMode = 'category' | 'store' | 'az';
+  type ViewMode = 'category' | 'store' | 'company' | 'az';
   type Entry = {
     store: Store;
     item: ListItem;
     product?: Product;
     category?: Category;
+    company?: Company;
   };
   type ViewGroup = {
     key: string;
     label: string;
-    icon: string;
+    icon?: IconRef | string;
     items: Entry[];
   };
 
   let mode = $state<ViewMode>('category');
   let storeFilter = $state('all');
+  let companyFilter = $state('all');
   let query = $state('');
   let showQuickAdd = $state(false);
 
@@ -39,6 +43,7 @@
     const stores = new Map(app.state.stores.map((store) => [store.id, store]));
     const products = new Map(app.state.products.map((product) => [product.id, product]));
     const categories = new Map(app.state.categories.map((category) => [category.id, category]));
+    const companies = new Map((app.state.companies ?? []).map((company) => [company.id, company]));
     const result: Entry[] = [];
 
     for (const list of Object.values(app.state.lists)) {
@@ -51,6 +56,7 @@
           item,
           product,
           category: product ? categories.get(product.categoryId) : undefined,
+          company: product ? companies.get(app.state.productCompanies?.[product.id] ?? '') : undefined,
         });
       }
     }
@@ -63,9 +69,21 @@
     return [...stores.values()].sort((a, b) => collator.compare(a.name, b.name));
   });
 
+  const companiesWithItems = $derived.by(() => {
+    const companies = new Map<string, Company>();
+    for (const entry of entries) if (entry.company) companies.set(entry.company.id, entry.company);
+    return [...companies.values()].sort((a, b) => collator.compare(a.name, b.name));
+  });
+
   $effect(() => {
     if (storeFilter !== 'all' && !storesWithItems.some((store) => store.id === storeFilter)) {
       storeFilter = 'all';
+    }
+  });
+
+  $effect(() => {
+    if (companyFilter !== 'all' && !companiesWithItems.some((company) => company.id === companyFilter)) {
+      companyFilter = 'all';
     }
   });
 
@@ -73,8 +91,9 @@
     const needle = norm(query);
     return entries.filter((entry) => {
       if (storeFilter !== 'all' && entry.store.id !== storeFilter) return false;
+      if (companyFilter !== 'all' && entry.company?.id !== companyFilter) return false;
       if (!needle) return true;
-      return [entry.product?.name, entry.store.name, entry.category?.name, entry.item.note]
+      return [entry.product?.name, entry.store.name, entry.category?.name, entry.company?.name, entry.item.note]
         .some((value) => value && norm(value).includes(needle));
     });
   });
@@ -95,17 +114,23 @@
     if (mode === 'az') {
       return items.length === 0
         ? []
-        : [{ key: 'az', label: t('all.alphabetical'), icon: '', items: items.slice().sort(itemSort) }];
+        : [{ key: 'az', label: t('all.alphabetical'), items: items.slice().sort(itemSort) }];
     }
 
     const groups = new Map<string, ViewGroup>();
     for (const entry of items) {
       const byCategory = mode === 'category';
-      const key = byCategory ? entry.category?.id ?? 'unknown' : entry.store.id;
-      const label = byCategory ? entry.category?.name ?? t('list.noCategory') : entry.store.name;
+      const byCompany = mode === 'company';
+      const key = byCategory
+        ? entry.category?.id ?? 'unknown'
+        : byCompany ? entry.company?.id ?? 'no-company' : entry.store.id;
+      const label = byCategory
+        ? entry.category?.name ?? t('list.noCategory')
+        : byCompany ? entry.company?.name ?? t('product.noCompany') : entry.store.name;
       const icon = byCategory
-        ? entry.category?.icon.kind === 'emoji' ? entry.category.icon.value : '📁'
-        : entry.store.icon.kind === 'emoji' ? entry.store.icon.value : '🏪';
+        ? entry.category?.icon
+        : byCompany ? entry.company?.icon ?? '🏢'
+        : entry.store.icon;
       const group = groups.get(key) ?? { key, label, icon, items: [] };
       group.items.push(entry);
       groups.set(key, group);
@@ -126,14 +151,14 @@
       <section class="card-elev p-4">
         {#if mode !== 'az'}
           <h3 class="font-semibold mb-1 flex items-center gap-2">
-            <span aria-hidden="true">{group.icon}</span>
+            <IconDisplay icon={group.icon} fallback={mode === 'category' ? '📁' : mode === 'store' ? '🏪' : '🏢'} px={22} />
             <span class="truncate">{group.label}</span>
             <span class="text-xs text-muted ms-auto">{group.items.length}</span>
           </h3>
         {/if}
         <ul class="divide-y" style="border-color: var(--border);">
           {#each group.items as entry (`${entry.store.id}:${entry.item.id}`)}
-            <AllItemsRow store={entry.store} item={entry.item} product={entry.product} />
+            <AllItemsRow store={entry.store} item={entry.item} product={entry.product} company={entry.company} />
           {/each}
         </ul>
       </section>
@@ -179,7 +204,7 @@
 
     <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
       <div
-        class="grid grid-cols-3 rounded-lg border p-1"
+        class="grid grid-cols-2 sm:grid-cols-4 rounded-lg border p-1"
         style="border-color: var(--border);"
         role="group"
         aria-label={t('all.groupBy')}
@@ -200,6 +225,13 @@
         ><StoreIcon size={16} aria-hidden="true" /> {t('all.byStore')}</button>
         <button
           type="button"
+          onclick={() => (mode = 'company')}
+          aria-pressed={mode === 'company'}
+          class:mode-active={mode === 'company'}
+          class="h-9 px-3 rounded-md text-sm inline-flex items-center justify-center gap-1.5 transition"
+        ><Building2 size={16} aria-hidden="true" /> {t('all.byCompany')}</button>
+        <button
+          type="button"
           onclick={() => (mode = 'az')}
           aria-pressed={mode === 'az'}
           class:mode-active={mode === 'az'}
@@ -207,17 +239,18 @@
         ><ArrowDownAZ size={16} aria-hidden="true" /> {t('all.alphabetical')}</button>
       </div>
 
-      <select
-        bind:value={storeFilter}
-        aria-label={t('all.filterStore')}
-        class="h-10 min-w-44 rounded-lg border px-3 bg-transparent text-sm"
-        style="border-color: var(--border);"
-      >
-        <option value="all">{t('all.allStores')}</option>
-        {#each storesWithItems as store (store.id)}
-          <option value={store.id}>{store.name}</option>
-        {/each}
-      </select>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <select bind:value={storeFilter} aria-label={t('all.filterStore')}
+          class="h-10 min-w-40 rounded-lg border px-3 bg-transparent text-sm" style="border-color: var(--border);">
+          <option value="all">{t('all.allStores')}</option>
+          {#each storesWithItems as store (store.id)}<option value={store.id}>{store.name}</option>{/each}
+        </select>
+        <select bind:value={companyFilter} aria-label={t('all.filterCompany')}
+          class="h-10 min-w-40 rounded-lg border px-3 bg-transparent text-sm" style="border-color: var(--border);">
+          <option value="all">{t('all.allCompanies')}</option>
+          {#each companiesWithItems as company (company.id)}<option value={company.id}>{company.name}</option>{/each}
+        </select>
+      </div>
     </div>
   </div>
 

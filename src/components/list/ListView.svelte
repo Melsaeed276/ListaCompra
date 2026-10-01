@@ -20,6 +20,8 @@
   import HoldButton from '../ui/HoldButton.svelte';
   import PhotoZoom from '../ui/PhotoZoom.svelte';
   import AllItemsButton from './AllItemsButton.svelte';
+  import CatalogManager from './CatalogManager.svelte';
+  import Settings2 from '@lucide/svelte/icons/settings-2';
   import { localeLanguageTag } from '$lib/i18n/locale';
   import { unitLabel } from '$lib/i18n/units';
   import { normalizeProductUrl } from '$lib/product-link';
@@ -36,6 +38,7 @@
   let showScanProduct = $state(false);
   // Gestor de los productos creados por el usuario (editar / borrar).
   let showMyProducts = $state(false);
+  let showCatalogManager = $state(false);
   // Producto cuya foto se está viendo en grande.
   let zoomProduct = $state<Product | null>(null);
   // Producto que se está editando desde su fila de la lista (✏️).
@@ -345,10 +348,16 @@
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-xs font-semibold uppercase tracking-wider text-muted">{t('list.section')}</span>
-            {#if activeCat !== 'all'}
-              <button onclick={() => (activeCat = 'all')}
-                class="text-xs text-muted hover:underline">{t('list.clearSection')}</button>
-            {/if}
+            <div class="flex items-center gap-2">
+              {#if activeCat !== 'all'}
+                <button onclick={() => (activeCat = 'all')}
+                  class="text-xs text-muted hover:underline">{t('list.clearSection')}</button>
+              {/if}
+              <button type="button" onclick={() => (showCatalogManager = true)}
+                title={t('catalog.manage')} aria-label={t('catalog.manage')}
+                class="size-8 rounded-full border grid place-items-center text-muted hover:text-current"
+                style="border-color: var(--border);"><Settings2 size={16} /></button>
+            </div>
           </div>
           <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scroll-smooth">
             <button onclick={() => (activeCat = 'all')}
@@ -573,6 +582,10 @@
       defaultCategoryId={activeCat !== 'all' ? activeCat : undefined}
       onAdd={(id) => app.addOrBumpItem(storeId, id)}
       onClose={() => (showScanProduct = false)} />
+  {/if}
+
+  {#if showCatalogManager}
+    <CatalogManager typeId={store.typeId} onClose={() => (showCatalogManager = false)} />
   {/if}
 {/if}
 

@@ -4,11 +4,12 @@
   import { base } from '$lib/base';
   import { t } from '$lib/i18n/ui.svelte';
   import { unitLabel } from '$lib/i18n/units';
-  import type { ListItem, Product, Store, Unit } from '$lib/types';
+  import type { Company, ListItem, Product, Store, Unit } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
+  import IconDisplay from '../ui/IconDisplay.svelte';
 
-  let { store, item, product }:
-    { store: Store; item: ListItem; product?: Product } = $props();
+  let { store, item, product, company }:
+    { store: Store; item: ListItem; product?: Product; company?: Company } = $props();
 
   const UNITS: Unit[] = ['unidad', 'kg', 'g', 'l', 'ml', 'paquete', 'docena', 'caja'];
   const productName = $derived(product?.name ?? '?');
@@ -54,6 +55,11 @@
     </div>
     {#if item.note}
       <p class="mt-0.5 line-clamp-2 text-xs text-muted">{item.note}</p>
+    {/if}
+    {#if company}
+      <span class="mt-1 me-2 inline-flex items-center gap-1 text-xs font-medium" style="color: var(--accent);">
+        <IconDisplay icon={company.icon} px={16} />{company.name}
+      </span>
     {/if}
     <a
       href={`#/lista/${encodeURIComponent(store.id)}`}

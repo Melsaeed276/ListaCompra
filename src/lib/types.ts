@@ -59,6 +59,14 @@ export interface Category {
   order?: number;
 }
 
+/** Product manufacturer or brand owner (ETI, DOST, etc.). */
+export interface Company {
+  id: string;
+  name: string;
+  /** Legacy snapshots may still contain the former plain emoji string. */
+  icon?: IconRef | string;
+}
+
 /** Producto del catálogo (plantilla — no es una entrada de lista todavía) */
 export interface Product {
   id: string;
@@ -115,6 +123,12 @@ export interface AppState {
   storeTypes: StoreType[];     // catálogo (puede sobreescribir el seed)
   stores: Store[];
   categories: Category[];
+  /** User-managed companies and catalog overrides. Optional for old snapshots. */
+  companies?: Company[];
+  /** One-time default-company migrations without restoring companies the user deleted. */
+  companySeedVersion?: number;
+  categoryOverrides?: Record<Category['id'], Pick<Category, 'name' | 'icon'>>;
+  productCompanies?: Record<Product['id'], Company['id']>;
   products: Product[];
   lists: Record<Store['id'], ShoppingList>;
   /** Frecuencia de uso por tienda y producto. Se incrementa cada vez que el

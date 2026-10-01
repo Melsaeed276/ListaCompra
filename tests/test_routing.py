@@ -329,7 +329,7 @@ def test_vista_combinada_esta_enrutada_y_localizada():
     assert shell.count("<AllItemsButton") == 1
     assert "<AllItemsButton" in list_view
     assert "let mode = $state<ViewMode>('category')" in all_view
-    assert "type ViewMode = 'category' | 'store' | 'az'" in all_view
+    assert "type ViewMode = 'category' | 'store' | 'company' | 'az'" in all_view
     assert "entry.store.id !== storeFilter" in all_view
     assert "entry.category?.name" in all_view
     assert "entry.item.note" in all_view
@@ -456,3 +456,55 @@ def test_detalles_de_producto_y_tiendas_online_genericas():
         assert ui.count(f"'{key}'") >= 5
         assert f"'{key}'" in ui_tr
         assert f"'{key}'" in ui_ar
+
+
+def test_empresas_y_categorias_editables_se_sincronizan_y_filtran():
+    types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+    storage = (ROOT / "src" / "lib" / "storage.ts").read_text(encoding="utf-8")
+    store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")
+    sync = (ROOT / "src" / "lib" / "sync.svelte.ts").read_text(encoding="utf-8")
+    all_items = (ROOT / "src" / "components" / "list" / "AllItemsView.svelte").read_text(
+        encoding="utf-8"
+    )
+    editor = (ROOT / "src" / "components" / "loyalty" / "ProductEditor.svelte").read_text(
+        encoding="utf-8"
+    )
+    settings = (ROOT / "src" / "components" / "ui" / "SettingsDialog.svelte").read_text(
+        encoding="utf-8"
+    )
+
+    assert "export interface Company" in types
+    assert "icon?: IconRef | string" in types
+    companies = (
+        "ETİ", "Torku", "Sütaş", "Dardanel", "Tadım", "Pınar", "Teksüt", "Eker",
+        "Ekici", "Muratbey", "Tahsildaroğlu", "Balparmak", "Koska", "Şölen", "Elvan",
+        "Reis", "Yayla", "Duru Bulgur", "Oba Makarna", "Nuh'un Ankara Makarnası",
+        "DİMES", "Aroma", "ÇAYKUR", "Doğuş Çay", "Uludağ İçecek", "Beypazarı",
+        "TAMEK", "Burcu", "Bağdat Baharat", "Arifoğlu", "Pakmaya", "Orkide",
+        "Kristal", "Marmarabirlik",
+    )
+    assert len(companies) >= 20
+    for company in companies:
+        assert company in storage
+    assert "productCompanies?:" in types
+    assert "categoryOverrides?:" in types
+    assert "upsertCompany(company" in store
+    assert "ensureCompanySeed()" in store
+    assert "companySeedVersion" in sync
+    assert "upsertCategory(category" in store
+    assert "companies: app.state.companies" in sync
+    assert "customCategories:" in sync
+    assert "categoryOverrides: app.state.categoryOverrides" in sync
+    assert "productCompanies: app.state.productCompanies" in sync
+    assert "mode === 'company'" in all_items
+    assert "entry.company?.name" in all_items
+    assert "app.setProductCompany(product.id" in editor
+    catalog_manager = (ROOT / "src" / "components" / "list" / "CatalogManager.svelte").read_text(
+        encoding="utf-8"
+    )
+    assert "fileToStorableDataUrl" in catalog_manager
+    assert "companyIconKind" in catalog_manager
+    assert "settings.categoryList" in settings
+    assert "settings.companyList" in settings
+    assert "settings.marketList" in settings
+    assert "app.state.profile?.username" in settings
