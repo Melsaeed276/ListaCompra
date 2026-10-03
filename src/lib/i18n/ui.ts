@@ -8,7 +8,7 @@
 // clave —o se inventa una que no existe— el build falla. Es la única forma de
 // que esto no se pudra en cuanto se añada una cadena nueva.
 
-import { DEFAULT_LOCALE, type Locale } from './locale';
+import { APP_NAMES, DEFAULT_LOCALE, type Locale } from './locale';
 import { AR } from './ui.ar';
 import { TR } from './ui.tr';
 
@@ -1602,6 +1602,7 @@ export function translate(
 ): string {
   const dict = UI[locale ?? DEFAULT_LOCALE] ?? UI[DEFAULT_LOCALE];
   let out: string = dict[key] ?? UI[DEFAULT_LOCALE][key] ?? key;
+  out = out.replaceAll('Tu Compra', APP_NAMES[locale ?? DEFAULT_LOCALE]);
   if (vars) {
     for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
   }

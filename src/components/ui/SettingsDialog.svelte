@@ -14,7 +14,8 @@
   import X from '@lucide/svelte/icons/x';
   import { app } from '$lib/stores/app.svelte';
   import { t } from '$lib/i18n/ui.svelte';
-  import { LOCALES, LOCALE_LABEL, type Locale } from '$lib/i18n/locale';
+  import { LOCALES, LOCALE_LABEL, APP_NAMES, DEFAULT_LOCALE, type Locale } from '$lib/i18n/locale';
+  import { saveUserLocale } from '$lib/sync.svelte';
   import type { Store, UserProfile } from '$lib/types';
   import pkg from '../../../package.json';
   import CatalogManager from '../list/CatalogManager.svelte';
@@ -25,6 +26,16 @@
   let catalogTab = $state<'companies' | 'categories' | null>(null);
   let editingStore = $state<Store | undefined>(undefined);
   let showStoreEditor = $state(false);
+  let languageSaving = $state(false);
+  let languageError = $state('');
+
+  async function changeLanguage(locale: Locale) {
+    languageSaving = true;
+    languageError = '';
+    try { await saveUserLocale(locale); }
+    catch (error) { languageError = (error as Error).message; }
+    finally { languageSaving = false; }
+  }
 
   const stores = $derived(app.state.stores.slice().sort((a, b) => a.name.localeCompare(b.name)));
 
@@ -63,11 +74,13 @@
         <Globe2 size={20} class="text-muted shrink-0" />
         <span class="flex-1 font-medium">{t('settings.language')}</span>
         <select value={app.state.locale}
-          onchange={(event) => app.setLocale(event.currentTarget.value as Locale)}
+          disabled={languageSaving}
+          onchange={(event) => changeLanguage(event.currentTarget.value as Locale)}
           class="h-10 max-w-48 rounded-lg border px-3 bg-transparent" style="border-color: var(--border);">
           {#each LOCALES as locale}<option value={locale}>{LOCALE_LABEL[locale]}</option>{/each}
         </select>
       </label>
+      {#if languageError}<p role="alert" class="text-sm text-red-600">{languageError}</p>{/if}
 
       <div class="space-y-2 border-b pb-4" style="border-color: var(--border);">
         <div class="font-medium">{t('settings.theme')}</div>
@@ -125,7 +138,7 @@
     {:else}
       <div class="space-y-4 py-2">
         <div>
-          <div class="text-2xl font-bold">Tu Compra</div>
+          <div class="text-2xl font-bold">{APP_NAMES[app.state.locale ?? DEFAULT_LOCALE]}</div>
           <div class="text-sm text-muted">v{pkg.version}</div>
         </div>
         <dl class="divide-y" style="border-color: var(--border);">

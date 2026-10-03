@@ -89,6 +89,9 @@ class TuCompraPanel extends HTMLElement {
         this.dispatchEvent(
           new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }),
         );
+      } else if (type === "tucompra-title" && event.origin === window.location.origin
+        && event.source === iframe.contentWindow && typeof event.data.title === "string") {
+        iframe.title = event.data.title;
       }
     });
   }
@@ -126,9 +129,10 @@ class TuCompraPanel extends HTMLElement {
     const hassUrl =
       (auth.data && auth.data.hassUrl) || window.location.origin;
     // Idioma y país de HA para localizar el catálogo y mostrar la bandera.
-    const language = this._hass.language || null;
+    const language = this._hass.locale?.language || this._hass.language || null;
     const country =
-      (this._hass.config && this._hass.config.country) || null;
+      (this._hass.config && this._hass.config.country)
+      || (this._hass.config?.time_zone === "Europe/Istanbul" ? "TR" : null);
     // targetOrigin = mismo origen: la SPA se sirve desde el propio HA.
     this._iframe.contentWindow.postMessage(
       { type: "tucompra-token", token, hassUrl, language, country },

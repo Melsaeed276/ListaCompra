@@ -184,8 +184,20 @@ class MeView(HomeAssistantView):
                 "name": user.name,
                 "is_admin": user.is_admin,
                 "person": _person_for_user(hass, user.id),
+                "preferences": store.user_preferences(user.id),
             }
         )
+
+    async def put(self, request):
+        body = await request.json()
+        if not isinstance(body, dict) or body.get("locale") not in (
+            "es", "en", "us", "fr", "de", "br", "tr", "ar"
+        ):
+            return self.json_message("Unsupported locale", status_code=400)
+        store = _store(request.app["hass"])
+        user = request["hass_user"]
+        await store.async_set_user_locale(user.id, body["locale"])
+        return self.json(store.user_preferences(user.id))
 
 
 class SharesView(HomeAssistantView):

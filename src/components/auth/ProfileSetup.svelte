@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n/ui.svelte';
+  import { APP_NAMES, DEFAULT_LOCALE } from '$lib/i18n/locale';
   // Setup inicial: sólo nombre de usuario y tema. La sincronización entre
   // dispositivos la aporta Home Assistant (usuario logueado en HA).
 
@@ -32,7 +33,7 @@
   <div class="card-elev p-8 space-y-6">
     <header class="text-center space-y-1">
       <div class="text-5xl">🛒</div>
-      <h1 class="text-2xl font-bold">Tu Compra</h1>
+      <h1 class="text-2xl font-bold">{APP_NAMES[app.state.locale ?? DEFAULT_LOCALE]}</h1>
       <p class="text-sm text-muted">{t('setup.title')}</p>
     </header>
 

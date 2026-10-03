@@ -17,7 +17,7 @@
   import SettingsDialog from './ui/SettingsDialog.svelte';
   import Settings from '@lucide/svelte/icons/settings';
   import { syncStatus, hydrateAuth, stopSync } from '$lib/sync.svelte';
-  import { resolveLocale, resolveLocaleFromBrowser, DEFAULT_LOCALE, localeDirection } from '$lib/i18n/locale';
+  import { resolveLocaleFromBrowser, preferredLocale, DEFAULT_LOCALE, localeDirection, APP_NAMES } from '$lib/i18n/locale';
   import { t } from '$lib/i18n/ui.svelte';
 
   let showDiag = $state(false);
@@ -51,17 +51,13 @@
     // arranca la sync. Fuera de HA queda en modo local puro.
     await hydrateAuth();
 
-    // Localiza el catálogo (tiendas/productos/idioma). Dentro de HA manda el
-    // idioma de HA. Fuera (demo web) sirve el del navegador, pero solo en la
-    // primera visita: setLocale re-seedea y descarta las tiendas del locale
-    // anterior, así que no debe pisar una elección ya guardada.
-    if (syncStatus.inHA) {
-      app.setLocale(resolveLocale(syncStatus.haLanguage, syncStatus.haCountry));
-    } else if (import.meta.env.DEV) {
+    // HA carga la preferencia personal antes de sincronizar las listas.
+    // Fuera de HA se respeta la elección local guardada.
+    if (!syncStatus.inHA && import.meta.env.DEV && app.state.locale === undefined) {
       // Desarrollo local: facilita probar el catálogo turco sin cambiar el
       // idioma del navegador. El build de Home Assistant no entra aquí.
       app.setLocale('tr');
-    } else if (app.state.locale === undefined && !app.state.profile) {
+    } else if (!syncStatus.inHA && app.state.locale === undefined && !app.state.profile) {
       // Sin perfil = visita nueva de verdad. `locale === undefined` por sí solo
       // no basta: también lo es para quien ya venía usando la demo, y a ese
       // re-seedear le retiraría las tiendas del catálogo con el que trabajaba.
@@ -94,8 +90,21 @@
   });
 
   $effect(() => {
+    if (ready && syncStatus.inHA && syncStatus.user && !syncStatus.user.preferences?.locale) {
+      app.setLocale(preferredLocale(undefined, syncStatus.haLanguage, syncStatus.haCountry));
+    }
+  });
+
+  $effect(() => {
     document.documentElement.lang = activeLocale;
     document.documentElement.dir = localeDirection(activeLocale);
+    document.title = APP_NAMES[activeLocale];
+    document.querySelectorAll('[data-app-name]').forEach((element) => {
+      element.textContent = APP_NAMES[activeLocale];
+    });
+    if (syncStatus.inHA) window.parent.postMessage(
+      { type: 'tucompra-title', title: APP_NAMES[activeLocale] }, window.location.origin,
+    );
   });
 
   /** Borra los datos locales de este navegador. Si la sync con HA está activa,
@@ -108,7 +117,7 @@
   }
 </script>
 
-{#if !app.hydrated}
+{#if !app.hydrated || !ready}
   <div class="min-h-screen grid place-items-center text-muted">{t('common.loading')}</div>
 {:else if !app.state.profile}
   <!-- Sin perfil: dentro de HA se autocompleta (no llega aquí). Fuera de HA

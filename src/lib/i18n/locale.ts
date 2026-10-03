@@ -5,6 +5,8 @@
 //  - qué catálogo de tiendas/productos cargar (seed localizado), y
 //  - qué bandera mostrar junto al selector de tema.
 
+import appNames from '../../../custom_components/tucompra/app_names.json';
+
 export type Locale = 'es' | 'en' | 'us' | 'fr' | 'de' | 'br' | 'tr' | 'ar';
 
 export const LOCALES: Locale[] = ['es', 'en', 'us', 'fr', 'de', 'br', 'tr', 'ar'];
@@ -13,6 +15,19 @@ export const LOCALES: Locale[] = ['es', 'en', 'us', 'fr', 'de', 'br', 'tr', 'ar'
  *  Inglés y no español: el proyecto nace en Euskadi, pero se publica en HACS
  *  para todo el mundo y un italiano o un neerlandés no espera ver Mercadona. */
 export const DEFAULT_LOCALE: Locale = 'en';
+
+export const APP_NAMES: Record<Locale, string> = appNames;
+
+export function preferredLocale(saved: unknown, language?: string, country?: string): Locale {
+  if (typeof saved === 'string' && LOCALES.includes(saved as Locale)) return saved as Locale;
+  if (!language) {
+    const countryLanguages: Record<string, string> = {
+      TR: 'tr', ES: 'es', FR: 'fr', DE: 'de', BR: 'pt', US: 'en', GB: 'en',
+    };
+    language = countryLanguages[(country ?? '').toUpperCase()];
+  }
+  return resolveLocale(language, country);
+}
 
 /** Mapea idioma+país al locale de catálogo soportado. */
 export function resolveLocale(language?: string, country?: string): Locale {

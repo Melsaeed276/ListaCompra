@@ -27,11 +27,11 @@ from .const import (
     DOMAIN,
     LOOKUP_ENABLED,
     PANEL_ICON,
-    PANEL_TITLE,
     PANEL_URL_PATH,
     STATIC_PATH,
 )
 from .store import TuCompraStore
+from .routing import resolve_locale
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +41,9 @@ _LOGGER = logging.getLogger(__name__)
 _VERSION = json.loads(
     (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")
 ).get("version", "0")
+_APP_NAMES = json.loads(
+    (Path(__file__).parent / "app_names.json").read_text(encoding="utf-8")
+)
 
 ADD_ITEM_SCHEMA = vol.Schema(
     {
@@ -117,7 +120,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name="tucompra-panel",
         module_url=f"{STATIC_PATH}/tucompra-panel.js?v={_VERSION}",
-        sidebar_title=PANEL_TITLE,
+        sidebar_title=_APP_NAMES[resolve_locale(hass.config.language, hass.config.country)],
         sidebar_icon=PANEL_ICON,
         require_admin=False,
         config={"static": STATIC_PATH},

@@ -13,7 +13,7 @@
 import { app } from './stores/app.svelte';
 import type { AppState, Category, Company, ShoppingList, Product, Store } from './types';
 import { getLocalizedSeed, LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from './data/locales';
-import { DEFAULT_LOCALE, LOCALES } from './i18n/locale';
+import { DEFAULT_LOCALE, LOCALES, preferredLocale, type Locale } from './i18n/locale';
 
 // IDs de tienda de todos los locales: distingue seed (de cualquier idioma) de
 // tienda custom del usuario, para no sincronizar el seed como si fuera custom.
@@ -49,6 +49,7 @@ export interface HAUser {
   user_id: string;
   name: string;
   is_admin: boolean;
+  preferences?: { locale?: Locale };
   person: { entity_id: string; name: string; picture?: string } | null;
 }
 
@@ -226,6 +227,9 @@ export async function hydrateAuth(): Promise<void> {
   }
   try {
     syncStatus.user = await api<HAUser>('/api/tucompra/me');
+    app.setLocale(preferredLocale(
+      syncStatus.user.preferences?.locale, syncStatus.haLanguage, syncStatus.haCountry,
+    ));
     syncStatus.isAdmin = !!syncStatus.user?.is_admin;
     log(`👤 ${syncStatus.user?.name}${syncStatus.isAdmin ? ' (admin)' : ''}`);
     await refreshShares();
@@ -266,6 +270,18 @@ export async function refreshShares(): Promise<void> {
     syncStatus.lastError = (e as Error).message;
     log(`❌ refreshShares: ${syncStatus.lastError}`);
   }
+}
+
+export async function saveUserLocale(locale: Locale): Promise<void> {
+  if (!LOCALES.includes(locale)) throw new Error('Unsupported locale');
+  if (syncStatus.inHA) {
+    if (!syncStatus.user) throw new Error('Home Assistant user unavailable');
+    const preferences = await api<{ locale: Locale }>('/api/tucompra/me', {
+      method: 'PUT', body: JSON.stringify({ locale }),
+    });
+    syncStatus.user.preferences = preferences;
+  }
+  app.setLocale(locale);
 }
 
 export async function startSync(): Promise<void> {

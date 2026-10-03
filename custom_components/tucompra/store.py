@@ -80,6 +80,15 @@ class TuCompraStore:
     async def _async_save(self) -> None:
         await self._store.async_save(self._data)
 
+    def user_preferences(self, user_id: str) -> dict[str, Any]:
+        return dict(self._data.setdefault("user_preferences", {}).get(user_id, {}))
+
+    async def async_set_user_locale(self, user_id: str, locale: str) -> None:
+        if locale not in {"es", "en", "us", "fr", "de", "br", "tr", "ar"}:
+            raise ValueError("Unsupported locale")
+        self._data.setdefault("user_preferences", {}).setdefault(user_id, {})["locale"] = locale
+        await self._async_save()
+
     # ── Shares ──────────────────────────────────────────────────────────
     @property
     def shares(self) -> dict[str, Any]:

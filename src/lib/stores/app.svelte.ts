@@ -82,6 +82,28 @@ class AppStore {
     const customProducts = this.state.products.filter((p) => p.id.startsWith('custom-'));
     this.state.products = [...seed.products, ...customProducts];
 
+    // Las listas compartidas conservan sus IDs aunque otro usuario elija otro idioma.
+    const listedStoreIds = new Set(Object.entries(this.state.lists)
+      .filter(([, list]) => list.items.length > 0).map(([id]) => id));
+    const listedProductIds = new Set(Object.values(this.state.lists)
+      .flatMap((list) => list.items.map((item) => item.productId)));
+    const storeIds = new Set(this.state.stores.map((store) => store.id));
+    const productIds = new Set(this.state.products.map((product) => product.id));
+    for (const locale of LOCALES) {
+      const catalog = getLocalizedSeed(locale);
+      for (const store of catalog.stores) {
+        if (!listedStoreIds.has(store.id) || storeIds.has(store.id)) continue;
+        const local = localById.get(store.id);
+        this.state.stores.push(local?.edited ? local : { ...store, enabled: local?.enabled });
+        storeIds.add(store.id);
+      }
+      for (const product of catalog.products) {
+        if (!listedProductIds.has(product.id) || productIds.has(product.id)) continue;
+        this.state.products.push(product);
+        productIds.add(product.id);
+      }
+    }
+
     // Iconos elegidos por el usuario: se aplican DESPUÉS de rehacer el seed,
     // que es lo que les permite sobrevivir al arranque y al cambio de idioma.
     const icons = this.state.productIcons;
@@ -116,7 +138,7 @@ class AppStore {
 
   /** Cambia el locale (idioma/cultura del catálogo) y re-seedea. */
   setLocale(locale: Locale): void {
-    if ((this.state.locale ?? DEFAULT_LOCALE) === locale) return;
+    if (this.state.locale === locale) return;
     this.state.locale = locale;
     this.refreshSeed();
     this.persist();
