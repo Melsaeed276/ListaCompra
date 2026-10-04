@@ -7,9 +7,8 @@
 // dentro. Antes solo viajaba el español y por eso la voz solo entendía "papel
 // higiénico" aunque la app estuviese en inglés.
 //
-// Las categorías son universales (los IDs no cambian de idioma) y el backend
-// solo necesita el mapa id → typeId: van una vez y sin nombres. `storeTypes` ya
-// no se exporta porque el backend nunca lo leía.
+// Los IDs de categoría son universales. Sus nombres localizados y las empresas
+// permiten interpretar etiquetas del servicio todo. No se exportan fotos.
 //
 // Se ejecuta con tsx (ver script `export:catalog` en package.json), tanto en
 // `build:ha` local como en el workflow de release. El resultado
@@ -21,7 +20,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CATEGORIES_SEED } from '../src/lib/data/categories.ts';
-import { LOCALIZED_PRODUCTS, LOCALIZED_STORES } from '../src/lib/data/locales/index.ts';
+import { getLocalizedSeed, LOCALIZED_PRODUCTS, LOCALIZED_STORES } from '../src/lib/data/locales/index.ts';
+import { DEFAULT_COMPANIES } from '../src/lib/storage.ts';
 import { LOCALES } from '../src/lib/i18n/locale.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,16 +30,19 @@ const OUT = resolve(__dirname, '../custom_components/tucompra/catalog.json');
 const catalog = {
   // Mapa id → typeId, común a todos los idiomas.
   categories: CATEGORIES_SEED.map((c) => ({ id: c.id, typeId: c.typeId })),
-  // Un bloque por idioma. Solo lo necesario para enrutar: ni iconos ni fotos.
+  companies: DEFAULT_COMPANIES.map(({ id, name }) => ({ id, name })),
+  // Un bloque por idioma; iconos ligeros para productos importados, sin fotos.
   locales: Object.fromEntries(
     LOCALES.map((loc) => [
       loc,
       {
+        categories: getLocalizedSeed(loc).categories.map(({ id, name, typeId }) => ({ id, name, typeId })),
         products: LOCALIZED_PRODUCTS[loc].map((p) => ({
           id: p.id,
           name: p.name,
           categoryId: p.categoryId,
           defaultUnit: p.defaultUnit,
+          icon: p.icon.kind === 'image' ? { kind: 'emoji', value: '🏷️' } : p.icon,
           // Exclusivo de una tienda (marca propia): el enrutado lo respeta.
           ...(p.storeId ? { storeId: p.storeId } : {}),
         })),

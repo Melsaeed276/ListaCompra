@@ -197,9 +197,17 @@ list space or an HA administrator can configure this connection.
 - The connection covers all market lists in the active personal/shared space.
   Connecting merges existing items from both sides. Each HA entity can connect
   to only one space at a time.
-- Product names, completion, and removal sync in both directions. HA-only items
-  appear in the localized **Inbox** market; quantities, units, links, and other
-  product details stay in Tu Compra. HA descriptions and due dates are preserved.
+- Product names, completion, and removal sync in both directions. HA shows
+  market/company tags, for example `Süt [BİM] [ETİ]`; the app shows the clean
+  product name under its market, with a separate company association.
+- HA text such as `BIM ETI sut`, `suger IKEA`, or `Torku yogurt A101` recognizes
+  market/company names and catalog products, assigning the product's category.
+  Matching ignores case and accents. Custom markets, companies, and categories
+  are recognized too (for example `Special food [BİM] [Kiler]`). Unknown names
+  remain unchanged; ambiguous markets go to **Inbox** rather than being guessed.
+  Without a market keyword, a configured category-type default market is used;
+  otherwise the item goes to Inbox. Quantities, units, links, and other details
+  stay in Tu Compra. HA descriptions and due dates are preserved.
 - App changes save after approximately two seconds. HA changes normally appear
   within 12–24 seconds, depending on the list provider. Server-side sync keeps
   running while the panel is closed and restores its connection after a restart.

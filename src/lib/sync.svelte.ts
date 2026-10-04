@@ -323,6 +323,11 @@ export async function stopSync(): Promise<void> {
 
 async function pullOnce(): Promise<void> {
   if (!syncStatus.activeShareId || pushTimer || pushing) return;
+  // Reintenta cambios pendientes antes de aplicar un snapshot remoto.
+  if (syncStatus.enabled && mutationRevision !== lastPushedRevision) {
+    await pushNow();
+    if (mutationRevision !== lastPushedRevision) return;
+  }
   const revision = mutationRevision;
   const shareId = syncStatus.activeShareId;
   try {
@@ -374,6 +379,7 @@ async function pushSnapshot(): Promise<void> {
     }
     lastPushedRevision = revision;
     syncStatus.lastSyncAt = Date.now();
+    syncStatus.lastError = '';
   } catch (e) {
     syncStatus.lastError = (e as Error).message;
     syncStatus.connected = false;

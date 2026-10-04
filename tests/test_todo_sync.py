@@ -2,6 +2,7 @@
 import asyncio
 from copy import deepcopy
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -71,6 +72,176 @@ class TodoSyncTests(unittest.TestCase):
 
     async def connect(self):
         await self.bridge.configure('personal:a', 'todo.shopping', 'a')
+
+    def shopping_catalog(self):
+        self.store.catalog = {'locales': {
+            'tr': {'products': [
+                {'id': 'milk', 'name': 'Süt', 'categoryId': 'dairy', 'defaultUnit': 'l'},
+                {'id': 'sugar', 'name': 'Şeker', 'categoryId': 'pantry', 'defaultUnit': 'kg'},
+            ], 'stores': [
+                {'id': 'tr-bim', 'name': 'BİM', 'typeId': 'supermercado'},
+                {'id': 'tr-ikea', 'name': 'IKEA', 'typeId': 'hogar'},
+            ], 'categories': [
+                {'id': 'dairy', 'name': 'Süt Ürünleri', 'typeId': 'supermercado'},
+                {'id': 'pantry', 'name': 'Temel Gıda', 'typeId': 'supermercado'},
+            ]},
+            'en': {'products': [
+                {'id': 'milk', 'name': 'Milk', 'categoryId': 'dairy', 'defaultUnit': 'l'},
+                {'id': 'sugar', 'name': 'Sugar', 'categoryId': 'pantry', 'defaultUnit': 'kg'},
+            ]},
+        }}
+        self.snapshot['companies'] = [{'id': 'eti', 'name': 'ETİ'}]
+
+    def test_market_and_company_tags_roundtrip_and_remote_market_move(self):
+        async def check():
+            self.shopping_catalog()
+            self.add_app('Süt')
+            listing = self.snapshot['lists'].pop('market')
+            listing['storeId'] = 'tr-bim'
+            self.snapshot['lists']['tr-bim'] = listing
+            self.snapshot['productCompanies'] = {'custom-app-1': 'eti'}
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'tr')
+            assert self.remote[0]['summary'] == 'Süt [BİM] [ETİ]'
+            uid = self.remote[0]['uid']
+            self.remote[0]['summary'] = 'IKEA ETI sut'
+            await self.bridge.sync('personal:a')
+            assert self.remote[0]['uid'] == uid
+            assert self.remote[0]['summary'] == 'Süt [IKEA] [ETİ]'
+            assert not self.snapshot['lists']['tr-bim']['items']
+            item = self.snapshot['lists']['tr-ikea']['items'][0]
+            assert item['id'] == 'app-1' and item['qty'] == 2
+            product = next(p for p in self.snapshot['customProducts'] if p['id'] == item['productId'])
+            assert product['name'] == 'Süt' and product['categoryId'] == 'dairy'
+            assert self.snapshot['productCompanies'][product['id']] == 'eti'
+            await self.bridge.sync('personal:a')
+            assert len(self.rows()) == len(self.remote) == 1
+        asyncio.run(check())
+
+    def test_ha_keywords_dictionary_categories_and_company_are_structured(self):
+        async def check():
+            self.shopping_catalog()
+            self.snapshot['customCategories'] = [{'id': 'custom-pantry', 'name': 'Kiler', 'typeId': 'supermercado'}]
+            self.remote.extend([
+                {'uid': 'one', 'summary': 'BIM ETI sut', 'status': 'needs_action'},
+                {'uid': 'two', 'summary': 'suger IKEA', 'status': 'needs_action'},
+                {'uid': 'three', 'summary': 'Special food [BIM] [Kiler]', 'status': 'completed'},
+            ])
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'tr')
+            milk, custom = self.snapshot['lists']['tr-bim']['items']
+            product = next(p for p in self.snapshot['customProducts'] if p['id'] == milk['productId'])
+            assert product['name'] == 'Süt' and product['categoryId'] == 'dairy'
+            assert milk['unit'] == 'l'
+            assert self.snapshot['productCompanies'][product['id']] == 'eti'
+            assert 'milk' not in self.snapshot.get('productCompanies', {})
+            assert self.snapshot['lists']['tr-ikea']['items'][0]['productId'] == 'sugar'
+            other = next(p for p in self.snapshot['customProducts'] if p['id'] == custom['productId'])
+            assert other['name'] == 'Special food' and other['categoryId'] == 'custom-pantry'
+            assert custom['done']
+            await self.bridge.sync('personal:a')
+            assert len(self.rows()) == len(self.remote) == 3
+        asyncio.run(check())
+
+    def test_arabic_and_existing_market_identity_and_unknown_names(self):
+        async def check():
+            self.shopping_catalog()
+            self.store.catalog['locales']['ar'] = {
+                'products': [{'id': 'milk', 'name': 'حليب', 'categoryId': 'dairy', 'defaultUnit': 'l'}],
+                'stores': [{'id': 'ar-bim', 'name': 'BİM', 'typeId': 'supermercado'},
+                           {'id': 'ar-ikea', 'name': 'IKEA', 'typeId': 'hogar'}],
+                'categories': [{'id': 'dairy', 'name': 'ألبان', 'typeId': 'supermercado'}],
+            }
+            self.snapshot['lists']['tr-bim'] = {'storeId': 'tr-bim', 'items': [], 'updatedAt': 1}
+            self.remote.extend([
+                {'uid': 'one', 'summary': 'BIM حليب ETI', 'status': 'needs_action'},
+                {'uid': 'two', 'summary': 'Bimble IKEA', 'status': 'needs_action'},
+                {'uid': 'three', 'summary': 'Unknown BIM IKEA', 'status': 'needs_action'},
+            ])
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'ar')
+            assert 'ar-bim' not in self.snapshot['lists']
+            milk = self.snapshot['lists']['tr-bim']['items'][0]
+            product = next(p for p in self.snapshot['customProducts'] if p['id'] == milk['productId'])
+            assert product['name'] == 'حليب'
+            ikea = self.snapshot['lists']['ar-ikea']['items'][0]
+            name = next(p['name'] for p in self.snapshot['customProducts'] if p['id'] == ikea['productId'])
+            assert name == 'Bimble'
+            inbox = self.snapshot['lists'][self.module.INBOX]['items'][0]
+            name = next(p['name'] for p in self.snapshot['customProducts'] if p['id'] == inbox['productId'])
+            assert name == 'Unknown BIM IKEA'
+        asyncio.run(check())
+
+    def test_concurrent_import_keeps_company_association(self):
+        self.shopping_catalog()
+        incoming = deepcopy(self.snapshot)
+        self.snapshot['customProducts'].append({'id': 'custom-todo-new', 'name': 'Süt'})
+        self.snapshot['productCompanies'] = {'custom-todo-new': 'eti'}
+        merged = self.module.merge_snapshot(self.snapshot, incoming, incoming['lists'])
+        assert merged['productCompanies']['custom-todo-new'] == 'eti'
+        incoming = deepcopy(self.snapshot)
+        incoming['productCompanies'] = {}
+        merged = self.module.merge_snapshot(self.snapshot, incoming, incoming['lists'])
+        assert not merged['productCompanies']
+
+    def test_exported_dictionary_with_real_turkish_catalog(self):
+        async def check():
+            self.store.catalog = json.loads((SOURCE.parent / 'catalog.json').read_text())
+            self.snapshot['companies'] = deepcopy(self.store.catalog['companies'])
+            self.remote.extend([
+                {'uid': 'milk', 'summary': 'BIM ETI sut', 'status': 'needs_action'},
+                {'uid': 'sugar', 'summary': 'IKEA suger', 'status': 'needs_action'},
+                {'uid': 'yogurt', 'summary': 'Torku yogurt A101', 'status': 'needs_action'},
+            ])
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'tr')
+            rows = self.bridge._rows(self.snapshot, {'user_id': 'a', 'locale': 'tr'})
+            by_market = {row[0]: row for row in rows.values()}
+            assert by_market['tr-bim'][2]['name'] == 'Süt'
+            assert by_market['tr-bim'][2]['categoryId'] == 'sup-lacteos'
+            assert by_market['tr-bim'][2]['icon']['kind'] == 'emoji'
+            assert by_market['tr-ikea'][2]['name'] == 'Şeker'
+            assert by_market['tr-a101'][2]['name'] == 'Yoğurt'
+            assert self.snapshot['productCompanies'][by_market['tr-a101'][2]['id']] == 'company-torku'
+            assert self.remote[0]['summary'] == 'Süt [BİM] [ETİ]'
+        asyncio.run(check())
+
+    def test_failed_tag_update_does_not_duplicate_import_and_bracket_tags_win(self):
+        async def check():
+            self.shopping_catalog()
+            self.remote.append({'uid': 'one', 'summary': 'Milk BIM', 'status': 'needs_action'})
+            original = self.bridge._call
+            fail_once = True
+
+            async def flaky(config, action, **data):
+                nonlocal fail_once
+                if action == 'update_item' and fail_once:
+                    fail_once = False
+                    raise RuntimeError('Tag update interrupted')
+                return await original(config, action, **data)
+            self.bridge._call = flaky
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'tr')
+            assert len(self.rows()) == 1
+            await self.bridge.sync('personal:a')
+            assert len(self.rows()) == 1
+            assert self.remote[0]['summary'] == 'Süt [BİM]'
+            self.add_app('IKEA table', 'table')
+            self.snapshot['lists']['tr-ikea'] = self.snapshot['lists'].pop('market')
+            await self.bridge.sync('personal:a')
+            table = next(t for t in self.remote if t['summary'].startswith('IKEA table'))
+            table['status'] = 'completed'
+            await self.bridge.sync('personal:a')
+            row = next(r for r in self.bridge._rows(self.snapshot, {'user_id': 'a', 'locale': 'tr'}).values()
+                       if r[1]['id'] == 'table')
+            assert row[2]['name'] == 'IKEA table'
+        asyncio.run(check())
+
+    def test_existing_custom_name_merges_without_dictionary_duplicates(self):
+        async def check():
+            self.shopping_catalog()
+            self.add_app('Milk')
+            self.snapshot['lists']['tr-bim'] = self.snapshot['lists'].pop('market')
+            self.remote.append({'uid': 'existing', 'summary': 'Milk BIM', 'status': 'needs_action'})
+            await self.bridge.configure('personal:a', 'todo.shopping', 'a', 'tr')
+            assert len(self.remote) == len(self.rows()) == 1
+            assert self.remote[0]['summary'] == 'Milk [BİM]'
+        asyncio.run(check())
 
     def test_bidirectional_add_and_idempotency(self):
         async def check():
