@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write    # write para que el step de fast-forward pueda
-  pages: write       # actualizar la rama v0.2 a la última de main.
+  contents: read
+  pages: write
   id-token: write
 
 concurrency:
@@ -21,10 +21,6 @@ jobs:
       GITHUB_PAGES: 'true'
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Historia completa para que git pueda verificar fast-forward
-          # al actualizar la rama v0.2.
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -43,18 +39,6 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
-
-      # Mantiene la rama v0.2 al día con main automáticamente.
-      # - 'continue-on-error: true' evita que un fallo aquí rompa el
-      #   deploy (la rama v0.2 es sólo un mirror; si falla la actualización
-      #   no es crítico).
-      # - '--force-with-lease' fuerza la actualización siempre que el
-      #   estado remoto sea el que esperamos (evita atropellar cambios
-      #   ajenos hipotéticos).
-      - name: Fast-forward branch v0.3 a main
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
-        run: git push --force-with-lease origin HEAD:refs/heads/v0.3
 
   deploy:
     needs: build

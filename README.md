@@ -9,7 +9,7 @@ It adds a **Tu Compra** panel to your Home Assistant sidebar, with a visual,
 mobile-first interface designed for actually using it while walking around a
 supermarket.
 
-🔗 Live demo (browser only, no HA): https://maestrea76.github.io/ListaCompra/
+🔗 Live demo (browser only, no HA): https://Melsaeed276.github.io/ListaCompra/
 
 ---
 
