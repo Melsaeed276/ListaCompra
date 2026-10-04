@@ -9,7 +9,7 @@
   import type { Product } from '$lib/types';
   import ProductIcon from '../ui/ProductIcon.svelte';
 
-  let { initialStoreId, onClose }: { initialStoreId?: string; onClose: () => void } = $props();
+  let { initialQuery = '', onClose }: { initialQuery?: string; onClose: () => void } = $props();
 
   const collator = $derived(
     new Intl.Collator(localeLanguageTag(app.state.locale), { sensitivity: 'base' }),
@@ -21,16 +21,12 @@
       .sort((a, b) => collator.compare(a.name, b.name)),
   );
 
-  let storeId = $state(
-    app.state.stores.some((store) => store.id === initialStoreId && store.enabled !== false)
-      ? initialStoreId!
-      : app.state.stores.find((store) => store.enabled !== false)?.id ?? '',
-  );
-  let query = $state('');
+  let storeId = $state('');
+  let query = $state(initialQuery);
 
   const store = $derived(stores.find((candidate) => candidate.id === storeId));
   const categories = $derived(
-    store ? app.state.categories.filter((category) => category.typeId === store.typeId) : [],
+    store ? app.state.categories.filter((category) => category.typeId === store.typeId) : app.state.categories,
   );
   const categoryIds = $derived(new Set(categories.map((category) => category.id)));
   const categoryNames = $derived(
@@ -42,7 +38,7 @@
           (product) => categoryIds.has(product.categoryId)
             && (!product.storeId || product.storeId === store.id),
         )
-      : [],
+      : app.state.products,
   );
 
   const matches = $derived.by(() => {
@@ -69,7 +65,6 @@
     if (!name || !store) return;
     const exact = products.find((product) => norm(product.name) === norm(name));
     if (exact) return addProduct(exact);
-    if (matches.length > 0) return addProduct(matches[0]);
     addProduct(app.createFreeProduct(name, store.typeId));
   }
 
@@ -110,20 +105,6 @@
       <p class="text-sm text-muted">{t('all.noStores')}</p>
     {:else}
       <label class="block space-y-1">
-        <span class="text-sm font-medium">{t('all.chooseStore')}</span>
-        <select
-          bind:value={storeId}
-          onchange={() => (query = '')}
-          class="w-full rounded-lg border px-3 py-2.5 bg-transparent"
-          style="border-color: var(--border);"
-        >
-          {#each stores as candidate (candidate.id)}
-            <option value={candidate.id}>{candidate.name}</option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="block space-y-1">
         <span class="text-sm font-medium">{t('all.productSearch')}</span>
         <span class="relative block">
           <Search
@@ -143,30 +124,47 @@
         </span>
       </label>
 
+      <label class="block space-y-1">
+        <span class="text-sm font-medium">{t('all.chooseStore')}</span>
+        <select
+          bind:value={storeId}
+          class="w-full rounded-lg border px-3 py-2.5 bg-transparent"
+          style="border-color: var(--border);"
+        >
+          <option value="">{t('list.chooseStore')}</option>
+          {#each stores as candidate (candidate.id)}
+            <option value={candidate.id}>{candidate.name}</option>
+          {/each}
+        </select>
+      </label>
+
       {#if matches.length > 0}
-        <ul class="divide-y" style="border-color: var(--border);">
+        <ul class="max-h-64 overflow-y-auto divide-y" style="border-color: var(--border);">
           {#each matches as product (product.id)}
             <li>
               <button
                 type="button"
+                disabled={!store}
                 onclick={() => addProduct(product)}
-                class="w-full min-h-12 py-2 flex items-center gap-3 text-start hover:bg-[var(--bg)] transition"
+                class="w-full min-h-11 py-1.5 flex items-center gap-2 text-start hover:bg-[var(--bg)] transition disabled:opacity-50"
               >
-                <ProductIcon {product} size="text-xl" px={28} />
-                <span class="min-w-0">
-                  <span class="block font-medium truncate">{product.name}</span>
-                  <span class="block text-xs text-muted truncate">
+                <ProductIcon {product} size="text-lg" px={22} />
+                <span class="min-w-0 flex-1 flex items-baseline gap-2">
+                  <span class="min-w-0 flex-1 text-sm font-medium truncate">{product.name}</span>
+                  <span class="max-w-[35%] text-xs text-muted truncate">
                     {categoryNames.get(product.categoryId)}
                   </span>
                 </span>
-                <Plus size={18} class="ms-auto shrink-0" aria-hidden="true" />
+                <Plus size={16} class="shrink-0" aria-hidden="true" />
               </button>
             </li>
           {/each}
         </ul>
-      {:else if query.trim()}
+      {/if}
+      {#if query.trim() && !products.some((product) => norm(product.name) === norm(query.trim()))}
         <button
           type="button"
+          disabled={!store}
           onclick={createAndAdd}
           class="w-full rounded-lg border p-3 text-start hover:bg-[var(--bg)] transition"
           style="border-color: var(--border);"

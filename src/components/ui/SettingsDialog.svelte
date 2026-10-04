@@ -12,6 +12,9 @@
   import StoreIcon from '@lucide/svelte/icons/store';
   import Sun from '@lucide/svelte/icons/sun';
   import X from '@lucide/svelte/icons/x';
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+  import { TODO_LABELS } from '$lib/i18n/todo';
+  import TodoSyncSettings from './TodoSyncSettings.svelte';
   import { app } from '$lib/stores/app.svelte';
   import { t } from '$lib/i18n/ui.svelte';
   import { LOCALES, LOCALE_LABEL, APP_NAMES, DEFAULT_LOCALE, type Locale } from '$lib/i18n/locale';
@@ -22,7 +25,8 @@
   import StoreEditor from '../list/StoreEditor.svelte';
 
   let { onClose, onSignOut }: { onClose: () => void; onSignOut: () => void } = $props();
-  let view = $state<'main' | 'markets' | 'about'>('main');
+  let view = $state<'main' | 'markets' | 'about' | 'todo'>('main');
+  const todoLabels = $derived(TODO_LABELS[app.state.locale ?? DEFAULT_LOCALE]);
   let catalogTab = $state<'companies' | 'categories' | null>(null);
   let editingStore = $state<Store | undefined>(undefined);
   let showStoreEditor = $state(false);
@@ -51,6 +55,7 @@
   }
 </script>
 
+{#if !catalogTab && !showStoreEditor}
 <div class="fixed inset-0 z-[60] grid place-items-center p-4" style="background: rgba(0,0,0,.5)"
   onclick={onClose} role="presentation">
   <section class="card-elev w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4"
@@ -63,7 +68,7 @@
         </button>
       {/if}
       <h2 id="settings-title" class="flex-1 text-lg font-bold">
-        {view === 'markets' ? t('settings.marketList') : view === 'about' ? t('settings.about') : t('settings.title')}
+        {view === 'markets' ? t('settings.marketList') : view === 'about' ? t('settings.about') : view === 'todo' ? todoLabels.title : t('settings.title')}
       </h2>
       <button type="button" onclick={onClose} title={t('common.close')}
         class="size-9 rounded-full grid place-items-center text-muted hover:bg-[var(--bg)]"><X size={19} /></button>
@@ -110,6 +115,9 @@
         <button type="button" onclick={() => (view = 'markets')} class="setting-row">
           <StoreIcon size={20} /> <span>{t('settings.marketList')}</span>
         </button>
+        <button type="button" onclick={() => (view = 'todo')} class="setting-row">
+          <RefreshCw size={20} /> <span>{todoLabels.title}</span>
+        </button>
         <button type="button" onclick={() => (view = 'about')} class="setting-row">
           <Info size={20} /> <span>{t('settings.about')}</span>
         </button>
@@ -135,6 +143,8 @@
           </li>
         {/each}
       </ul>
+    {:else if view === 'todo'}
+      <TodoSyncSettings />
     {:else}
       <div class="space-y-4 py-2">
         <div>
@@ -149,6 +159,7 @@
     {/if}
   </section>
 </div>
+{/if}
 
 {#if catalogTab}
   <CatalogManager initialTab={catalogTab} onClose={() => (catalogTab = null)} />

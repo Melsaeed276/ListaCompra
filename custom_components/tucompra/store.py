@@ -10,6 +10,7 @@ entera: entrar en un share da acceso a todo su contenido.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from pathlib import Path
@@ -53,6 +54,7 @@ class TuCompraStore:
         self._hass = hass
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, Any] = {"shares": {}}
+        self.lock = asyncio.Lock()
         # Catálogo de los 6 idiomas; se aplana al de HA en cada resolución.
         self.catalog = load_catalog(Path(__file__).parent / "catalog.json")
 

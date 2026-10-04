@@ -29,6 +29,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN, LOOKUP_ENABLED
 from .store import TuCompraStore
+from .todo_sync import merge_snapshot
+from .routing import resolve_locale
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,6 +95,44 @@ def async_register_views(hass: HomeAssistant) -> None:
     hass.http.register_view(StateView())
     hass.http.register_view(UsersView())
     hass.http.register_view(LookupView())
+    hass.http.register_view(TodoSyncView())
+
+
+class TodoSyncView(HomeAssistantView):
+    url = '/api/tucompra/todo-sync'
+    name = 'api:tucompra:todo_sync'
+    requires_auth = True
+
+    async def get(self, request):
+        store = _store(request.app['hass'])
+        user = request['hass_user']
+        share_id = request.query.get('share') or store.personal_id(user.id)
+        if not store.is_member(share_id, user.id):
+            return self.json_message('Not a list member', status_code=403)
+        return self.json({
+            **store.todo_sync.status(share_id),
+            'entities': await store.todo_sync.entities(user.id),
+            'can_edit': user.is_admin or store.shares[share_id]['owner'] == user.id,
+        })
+
+    async def put(self, request):
+        store = _store(request.app['hass'])
+        user = request['hass_user']
+        share_id = request.query.get('share') or store.personal_id(user.id)
+        if not store.is_member(share_id, user.id):
+            return self.json_message('Not a list member', status_code=403)
+        if not user.is_admin and store.shares[share_id]['owner'] != user.id:
+            return self.json_message('Only the list owner or an administrator', status_code=403)
+        body = await request.json()
+        if not isinstance(body, dict) or not isinstance(body.get('entity_id'), str):
+            return self.json_message('Invalid entity ID', status_code=400)
+        try:
+            hass = request.app['hass']
+            locale = store.user_preferences(user.id).get('locale') or resolve_locale(hass.config.language, hass.config.country)
+            result = await store.todo_sync.configure(share_id, body['entity_id'], user.id, locale)
+        except ValueError as error:
+            return self.json_message(str(error), status_code=400)
+        return self.json(result)
 
 
 class LookupView(HomeAssistantView):
@@ -247,9 +287,10 @@ class ShareDetailView(HomeAssistantView):
             return self.json_message("Solo administradores.", status_code=403)
         body = await request.json()
         store = _store(hass)
-        share = await store.async_update_share(
-            share_id, name=body.get("name"), members=body.get("members")
-        )
+        async with store.lock:
+            share = await store.async_update_share(
+                share_id, name=body.get("name"), members=body.get("members")
+            )
         if not share:
             return self.json_message("No existe.", status_code=404)
         return self.json(share)
@@ -260,7 +301,8 @@ class ShareDetailView(HomeAssistantView):
         if not user.is_admin:
             return self.json_message("Solo administradores.", status_code=403)
         store = _store(hass)
-        ok = await store.async_delete_share(share_id)
+        async with store.lock:
+            ok = await store.async_delete_share(share_id)
         return self.json({"deleted": ok})
 
 
@@ -276,6 +318,7 @@ class StateView(HomeAssistantView):
         share_id = request.query.get("share") or store.personal_id(user.id)
         if not store.is_member(share_id, user.id):
             return self.json_message("No eres miembro de este share.", status_code=403)
+        await store.todo_sync.sync(share_id)
         return self.json(
             {
                 "share": share_id,
@@ -292,10 +335,16 @@ class StateView(HomeAssistantView):
         share_id = request.query.get("share") or store.personal_id(user.id)
         if not store.is_member(share_id, user.id):
             return self.json_message("No eres miembro de este share.", status_code=403)
-        await store.async_set_snapshot(
-            share_id, body.get("snapshot"), body.get("updatedAt")
-        )
-        return self.json({"ok": True, "updatedAt": store.updated_at(share_id)})
+        snapshot = body.get('snapshot')
+        if not isinstance(snapshot, dict) or not isinstance(snapshot.get('lists'), dict):
+            return self.json_message('Invalid snapshot', status_code=400)
+        async with store.lock:
+            if store.shares[share_id].get('todoSync'):
+                snapshot = merge_snapshot(store.get_snapshot(share_id), snapshot, body.get('baseLists', {}))
+            await store.async_set_snapshot(share_id, snapshot, snapshot.get('updatedAt'))
+        await store.todo_sync.sync(share_id)
+        return self.json({'ok': True, 'updatedAt': store.updated_at(share_id),
+                          'snapshot': store.get_snapshot(share_id)})
 
 
 class UsersView(HomeAssistantView):

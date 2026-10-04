@@ -61,6 +61,11 @@ let hassUrl = '';
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let lastAppliedAt = 0;
+let baseLists: Record<string, ShoppingList> = {};
+let mutationRevision = 0;
+let pushing = false;
+let currentPush: Promise<void> | null = null;
+let lastPushedRevision = -1;
 
 export const syncStatus = $state({
   inHA: false, // ¿estamos incrustados en el panel de HA (hay token)?
@@ -136,7 +141,8 @@ async function api<T = any>(
     },
   });
   if (!res.ok) {
-    const msg = `${res.status} ${res.statusText}`;
+    const detail = await res.json().catch(() => null);
+    const msg = detail?.message || `${res.status} ${res.statusText}`;
     throw new Error(msg);
   }
   syncStatus.connected = true;
@@ -316,11 +322,15 @@ export async function stopSync(): Promise<void> {
 }
 
 async function pullOnce(): Promise<void> {
-  if (!syncStatus.activeShareId) return;
+  if (!syncStatus.activeShareId || pushTimer || pushing) return;
+  const revision = mutationRevision;
+  const shareId = syncStatus.activeShareId;
   try {
     const data = await api<{ snapshot: SyncSnapshot | null; updatedAt: number }>(
       `/api/tucompra/state?share=${encodeURIComponent(syncStatus.activeShareId)}`,
     );
+    if (revision !== mutationRevision || shareId !== syncStatus.activeShareId) return;
+    baseLists = structuredClone(data.snapshot?.lists ?? {});
     if (!data.snapshot) { log('Sin snapshot remoto aún.'); return; }
     const localUpdatedAt = Math.max(
       ...Object.values(app.state.lists).map((l) => l.updatedAt), 0,
@@ -336,34 +346,84 @@ async function pullOnce(): Promise<void> {
 }
 
 export async function pushNow(): Promise<void> {
+  if (currentPush) {
+    await currentPush;
+    if (mutationRevision !== lastPushedRevision) await pushNow();
+    return;
+  }
+  currentPush = pushSnapshot();
+  try { await currentPush; }
+  finally { currentPush = null; }
+}
+
+async function pushSnapshot(): Promise<void> {
   if (!syncStatus.inHA || !syncStatus.activeShareId) return;
+  if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
+  pushing = true;
+  const revision = mutationRevision;
+  const shareId = syncStatus.activeShareId;
   try {
     const snap = buildSnapshot();
-    await api(`/api/tucompra/state?share=${encodeURIComponent(syncStatus.activeShareId)}`, {
+    const result = await api<{ snapshot?: SyncSnapshot }>(`/api/tucompra/state?share=${encodeURIComponent(shareId)}`, {
       method: 'POST',
-      body: JSON.stringify({ snapshot: snap, updatedAt: snap.updatedAt }),
+      body: JSON.stringify({ snapshot: snap, updatedAt: snap.updatedAt, baseLists }),
     });
+    if (shareId === syncStatus.activeShareId) {
+      baseLists = structuredClone(result.snapshot?.lists ?? $state.snapshot(snap.lists));
+      if (result.snapshot && revision === mutationRevision) applySnapshot(result.snapshot);
+    }
+    lastPushedRevision = revision;
     syncStatus.lastSyncAt = Date.now();
   } catch (e) {
     syncStatus.lastError = (e as Error).message;
     syncStatus.connected = false;
     log(`⚠️ Push: ${syncStatus.lastError}`);
+  } finally {
+    pushing = false;
   }
 }
 
 /** Llamado por app.persist() en cada mutación. Debounce 2s. */
 export function schedulePush(): void {
+  mutationRevision++;
   if (!syncStatus.enabled) return;
   if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(() => { pushNow().catch(() => {}); }, 2000);
+  pushTimer = setTimeout(() => { pushTimer = null; pushNow().catch(() => {}); }, 2000);
 }
 
 export async function switchShare(shareId: string): Promise<void> {
   await stopSync();
+  if (currentPush) await currentPush;
   syncStatus.activeShareId = shareId;
   try { localStorage.setItem(ACTIVE_SHARE_KEY, shareId); } catch {}
   lastAppliedAt = 0;
+  baseLists = {};
   await startSync();
+}
+
+export interface TodoSyncSettings {
+  entity_id: string;
+  last_sync: number;
+  error: string;
+  entities: { entity_id: string; name: string }[];
+  can_edit: boolean;
+}
+
+export async function getTodoSync(): Promise<TodoSyncSettings> {
+  if (!syncStatus.inHA || !syncStatus.activeShareId) throw new Error('Home Assistant list space unavailable');
+  return api(`/api/tucompra/todo-sync?share=${encodeURIComponent(syncStatus.activeShareId)}`);
+}
+
+export async function setTodoSync(entityId: string): Promise<void> {
+  if (!syncStatus.inHA || !syncStatus.activeShareId || !syncStatus.enabled) throw new Error('Home Assistant sync unavailable');
+  await pushNow();
+  if (pushTimer) await pushNow();
+  if (!syncStatus.connected) throw new Error(syncStatus.lastError || 'Home Assistant unavailable');
+  const result = await api<TodoSyncSettings>(`/api/tucompra/todo-sync?share=${encodeURIComponent(syncStatus.activeShareId)}`, {
+    method: 'PUT', body: JSON.stringify({ entity_id: entityId }),
+  });
+  await pullOnce();
+  if (result.error) throw new Error(result.error);
 }
 
 // ─── Gestión de shares (solo admin) ─────────────────────────────────────

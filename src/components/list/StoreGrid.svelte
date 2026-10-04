@@ -3,11 +3,13 @@
   import { app } from '$lib/stores/app.svelte';
   import StoreCard from './StoreCard.svelte';
   import StoreEditor from './StoreEditor.svelte';
+  import QuickAddItemDialog from './QuickAddItemDialog.svelte';
+  import Plus from '@lucide/svelte/icons/plus';
   import type { Store } from '$lib/types';
   import { localeLanguageTag } from '$lib/i18n/locale';
 
   let editing = $state<Store | undefined>(undefined);
-  let creating = $state(false);
+  let showQuickAdd = $state(false);
 
   // Orden: 1º por nº de artículos en lista (desc), 2º alfabético.
   // "Otros" siempre al final independientemente del resto.
@@ -25,19 +27,12 @@
       }),
   );
 
-  function openCreate() {
-    editing = undefined;
-    creating = true;
-  }
-
   function openEdit(s: Store) {
-    creating = false;
     editing = s;
   }
 
   function closeEditor() {
     editing = undefined;
-    creating = false;
   }
 </script>
 
@@ -47,20 +42,22 @@
   {/each}
 </div>
 
-<!-- FAB para añadir tienda — flotante abajo-derecha. Estilo big-pill como
-     en los dashboards tipo tesladash: sombra fuerte, color de marca, gran
-     tamaño en mobile para acceso con el pulgar. -->
 <button
   type="button"
-  onclick={openCreate}
-  title={t('stores.add')}
+  onclick={() => (showQuickAdd = true)}
+  title={t('all.addItem')}
+  aria-label={t('all.addItem')}
   class="fixed bottom-6 end-6 z-40 h-14 px-5 rounded-full font-bold text-white text-base flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition"
   style="background: var(--accent); box-shadow: 0 12px 28px -6px var(--accent);"
 >
-  <span class="text-2xl leading-none">+</span>
-  <span class="hidden sm:inline">{t('stores.new')}</span>
+  <Plus size={24} aria-hidden="true" />
+  <span class="hidden sm:inline">{t('all.addItem')}</span>
 </button>
 
-{#if creating || editing}
+{#if editing}
   <StoreEditor store={editing} onClose={closeEditor} />
+{/if}
+
+{#if showQuickAdd}
+  <QuickAddItemDialog onClose={() => (showQuickAdd = false)} />
 {/if}

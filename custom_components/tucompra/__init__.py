@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import mimetypes
+from datetime import timedelta
 from pathlib import Path
 
 import voluptuous as vol
@@ -21,6 +22,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.event import async_track_time_interval
 
 from .api import async_register_views
 from .const import (
@@ -31,6 +33,7 @@ from .const import (
     STATIC_PATH,
 )
 from .store import TuCompraStore
+from .todo_sync import TodoSync
 from .routing import resolve_locale
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,6 +76,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     store = TuCompraStore(hass)
     await store.async_load()
     hass.data[DOMAIN] = store
+    store.todo_sync = TodoSync(hass, store)
+
+    async def _sync_todo(_now):
+        for share_id in list(store.shares):
+            await store.todo_sync.sync(share_id)
+
+    cancel_todo = async_track_time_interval(hass, _sync_todo, timedelta(seconds=12))
+    hass.bus.async_listen_once('homeassistant_stop', lambda _event: cancel_todo())
 
     conf = config.get(DOMAIN) or {}
     hass.data[LOOKUP_ENABLED] = bool(conf.get("product_lookup", False))
@@ -96,12 +107,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_register_views(hass)
 
     async def _handle_add_item(call: ServiceCall) -> dict:
-        result = await store.async_add_named_item(
-            name=call.data["name"],
-            quantity=call.data.get("quantity", 1),
-            unit=call.data.get("unit"),
-            share_id=call.data.get("share_id"),
-        )
+        async with store.lock:
+            result = await store.async_add_named_item(
+                name=call.data["name"],
+                quantity=call.data.get("quantity", 1),
+                unit=call.data.get("unit"),
+                share_id=call.data.get("share_id"),
+            )
+        if result.get('ok'):
+            await store.todo_sync.sync(result['share_id'])
         _LOGGER.debug("add_item(%s) → %s", call.data.get("name"), result)
         return result
 

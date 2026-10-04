@@ -5,6 +5,7 @@ import type { AppState, Category, Company, IconRef, ListItem, Product, ShoppingL
 import { COMPANY_SEED_VERSION, createInitialState, DEFAULT_COMPANIES, loadState, saveState } from '../storage';
 import { getLocalizedSeed, LOCALIZED_STORES, RETIRED_SEED_STORE_IDS } from '../data/locales';
 import { DEFAULT_LOCALE, LOCALES, type Locale } from '../i18n/locale';
+import { TODO_LABELS } from '../i18n/todo';
 
 // IDs de tienda de TODOS los locales: sirve para distinguir "tienda de seed
 // (de cualquier idioma)" de "tienda custom del usuario".
@@ -66,6 +67,8 @@ class AppStore {
       })),
       ...customStores,
     ];
+    const inbox = this.state.stores.find((store) => store.id === 'todo-inbox');
+    if (inbox) inbox.name = TODO_LABELS[this.state.locale ?? DEFAULT_LOCALE].inbox;
 
     // Categorías y productos: refresco completo del seed localizado; preservamos
     // los custom (categorías no-seed, productos con prefijo custom-).

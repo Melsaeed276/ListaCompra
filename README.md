@@ -188,6 +188,26 @@ HA user who is currently logged in:
 - Switch between your lists from the sync panel (the status chip under your
   name).
 
+### Connect a Home Assistant to-do list
+
+Open **Settings → Home Assistant To-do**, select an editable `todo.*` entity
+(such as `todo.shopping_list`), and press **Connect**. The owner of the active
+list space or an HA administrator can configure this connection.
+
+- The connection covers all market lists in the active personal/shared space.
+  Connecting merges existing items from both sides. Each HA entity can connect
+  to only one space at a time.
+- Product names, completion, and removal sync in both directions. HA-only items
+  appear in the localized **Inbox** market; quantities, units, links, and other
+  product details stay in Tu Compra. HA descriptions and due dates are preserved.
+- App changes save after approximately two seconds. HA changes normally appear
+  within 12–24 seconds, depending on the list provider. Server-side sync keeps
+  running while the panel is closed and restores its connection after a restart.
+- If both sides edit the same item before the next sync, the app edit wins.
+  **Disconnect** stops syncing without deleting existing items on either side.
+- The standalone browser demo cannot connect to HA lists. A selected HA list
+  may use a cloud provider; its own integration controls where that data goes.
+
 ---
 
 ## Voice input with Assist

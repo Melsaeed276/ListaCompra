@@ -195,11 +195,24 @@
       <input
         type="search"
         bind:value={query}
+        onkeydown={(event) => {
+          if (event.key === 'Enter' && query.trim() && !event.isComposing) showQuickAdd = true;
+        }}
         placeholder={t('all.search')}
         aria-label={t('all.search')}
-        class="w-full rounded-lg border py-2.5 ps-10 pe-3 bg-transparent"
+        class="w-full rounded-lg border py-2.5 ps-10 pe-12 bg-transparent"
         style="border-color: var(--border);"
       />
+      {#if query.trim()}
+        <button
+          type="button"
+          onclick={() => (showQuickAdd = true)}
+          title={t('all.addItem')}
+          aria-label={t('all.addItem')}
+          class="absolute end-1 top-1/2 -translate-y-1/2 size-9 grid place-items-center rounded-md hover:bg-[var(--bg)]"
+          style="color: var(--accent);"
+        ><Plus size={20} aria-hidden="true" /></button>
+      {/if}
     </div>
 
     <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -286,7 +299,7 @@
 
 {#if showQuickAdd}
   <QuickAddItemDialog
-    initialStoreId={storeFilter === 'all' ? undefined : storeFilter}
+    initialQuery={query.trim()}
     onClose={() => (showQuickAdd = false)}
   />
 {/if}
