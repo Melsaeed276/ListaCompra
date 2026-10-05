@@ -115,6 +115,17 @@ class TodoSyncTests(unittest.TestCase):
             assert self.snapshot['productCompanies'][product['id']] == 'eti'
             await self.bridge.sync('personal:a')
             assert len(self.rows()) == len(self.remote) == 1
+            listing = self.snapshot['lists']['tr-ikea']
+            moved = listing['items'].pop()
+            moved['note'] = 'Keep the purchase details'
+            moved['priority'] = 'high'
+            moved['url'] = 'https://example.com/product'
+            self.snapshot['lists']['tr-bim']['items'].append(moved)
+            await self.bridge.sync('personal:a')
+            assert self.remote[0]['uid'] == uid
+            assert self.remote[0]['summary'] == 'Süt [BİM] [ETİ]'
+            assert len(self.remote) == 1
+            assert self.snapshot['lists']['tr-bim']['items'][0]['note'] == 'Keep the purchase details'
         asyncio.run(check())
 
     def test_ha_keywords_dictionary_categories_and_company_are_structured(self):

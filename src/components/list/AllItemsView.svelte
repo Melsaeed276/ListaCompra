@@ -14,6 +14,7 @@
   import AllItemsRow from './AllItemsRow.svelte';
   import QuickAddItemDialog from './QuickAddItemDialog.svelte';
   import IconDisplay from '../ui/IconDisplay.svelte';
+  import ProductEditor from '../loyalty/ProductEditor.svelte';
 
   type ViewMode = 'category' | 'store' | 'company' | 'az';
   type Entry = {
@@ -35,6 +36,7 @@
   let companyFilter = $state('all');
   let query = $state('');
   let showQuickAdd = $state(false);
+  let editingEntry = $state<Entry | null>(null);
 
   const languageTag = $derived(localeLanguageTag(app.state.locale));
   const collator = $derived(new Intl.Collator(languageTag, { sensitivity: 'base' }));
@@ -158,7 +160,8 @@
         {/if}
         <ul class="divide-y" style="border-color: var(--border);">
           {#each group.items as entry (`${entry.store.id}:${entry.item.id}`)}
-            <AllItemsRow store={entry.store} item={entry.item} product={entry.product} company={entry.company} />
+            <AllItemsRow store={entry.store} item={entry.item} product={entry.product} company={entry.company}
+              onEdit={() => (editingEntry = entry)} />
           {/each}
         </ul>
       </section>
@@ -302,6 +305,14 @@
     initialQuery={query.trim()}
     onClose={() => (showQuickAdd = false)}
   />
+{/if}
+
+{#if editingEntry?.product}
+  <ProductEditor product={editingEntry.product}
+    categories={app.state.categories.slice().sort((a, b) => collator.compare(a.name, b.name))}
+    storeId={editingEntry.store.id} storeName={editingEntry.store.name}
+    itemId={editingEntry.item.id}
+    onClose={() => (editingEntry = null)} />
 {/if}
 
 <style>

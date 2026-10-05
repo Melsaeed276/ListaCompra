@@ -1,5 +1,6 @@
 <script lang="ts">
   import Trash2 from '@lucide/svelte/icons/trash-2';
+  import Pencil from '@lucide/svelte/icons/pencil';
   import { app } from '$lib/stores/app.svelte';
   import { base } from '$lib/base';
   import { t } from '$lib/i18n/ui.svelte';
@@ -8,8 +9,8 @@
   import ProductIcon from '../ui/ProductIcon.svelte';
   import IconDisplay from '../ui/IconDisplay.svelte';
 
-  let { store, item, product, company }:
-    { store: Store; item: ListItem; product?: Product; company?: Company } = $props();
+  let { store, item, product, company, onEdit }:
+    { store: Store; item: ListItem; product?: Product; company?: Company; onEdit: () => void } = $props();
 
   const UNITS: Unit[] = ['unidad', 'kg', 'g', 'l', 'ml', 'paquete', 'docena', 'caja'];
   const productName = $derived(product?.name ?? '?');
@@ -115,6 +116,14 @@
     >
       {#each UNITS as unit}<option value={unit}>{unitLabel(unit, app.state.locale)}</option>{/each}
     </select>
+    {#if product}
+      <button type="button" onclick={onEdit}
+        title={t('product.editTitle')}
+        aria-label={`${t('product.editTitle')}: ${productName}`}
+        class="size-8 shrink-0 rounded-full grid place-items-center text-muted hover:text-current hover:bg-[var(--bg)] transition">
+        <Pencil size={17} aria-hidden="true" />
+      </button>
+    {/if}
     <button
       type="button"
       onclick={() => app.removeItem(store.id, item.id)}

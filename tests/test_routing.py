@@ -410,6 +410,22 @@ def test_tiendas_online_permiten_guardar_enlaces_de_producto():
         assert f"'{key}'" in ui_ar
 
 
+def test_editor_permite_cambiar_tienda_desde_lista_y_todos_los_productos():
+    editor = (ROOT / "src/components/loyalty/ProductEditor.svelte").read_text(encoding="utf-8")
+    row = (ROOT / "src/components/list/AllItemsRow.svelte").read_text(encoding="utf-8")
+    view = (ROOT / "src/components/list/AllItemsView.svelte").read_text(encoding="utf-8")
+    assert "bind:value={selectedStoreId}" in editor
+    assert "store.enabled !== false || store.id === storeId" in editor
+    assert "app.moveItem(storeId, itemId, selectedStoreId)" in editor
+    assert editor.index("app.setItemDetails(storeId, itemId") < editor.index("app.moveItem(storeId")
+    assert "storeId: itemId ? selectedStoreId : storeId" in editor
+    assert "!!selectedStore?.online || !!productUrl" in editor
+    assert "onclick={onEdit}" in row
+    assert "<Pencil" in row
+    assert "onEdit={() => (editingEntry = entry)}" in view
+    assert "itemId={editingEntry.item.id}" in view
+
+
 def test_detalles_de_producto_y_tiendas_online_genericas():
     types = (ROOT / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
     store = (ROOT / "src" / "lib" / "stores" / "app.svelte.ts").read_text(encoding="utf-8")

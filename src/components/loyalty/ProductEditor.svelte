@@ -11,6 +11,7 @@
 
   import { app } from '$lib/stores/app.svelte';
   import { unitLabel } from '$lib/i18n/units';
+  import { localeLanguageTag } from '$lib/i18n/locale';
   import { fileToStorableDataUrl } from '$lib/image';
   import { normalizeProductUrl } from '$lib/product-link';
   import type { Category, ItemPriority, Product, Unit } from '$lib/types';
@@ -39,6 +40,12 @@
   let name = $state(product.name);
   let categoryId = $state(product.categoryId);
   let unit = $state<Unit>(product.defaultUnit);
+  let selectedStoreId = $state(storeId);
+  const selectedStore = $derived(app.state.stores.find((store) => store.id === selectedStoreId));
+  const markets = $derived(app.state.stores
+    .filter((store) => store.enabled !== false || store.id === storeId)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, localeLanguageTag(app.state.locale))));
   let onlyHere = $state(product.storeId === storeId);
   let emoji = $state(product.icon.kind === 'emoji' ? product.icon.value : '🏷️');
   // Imagen actual: la que haya puesto el usuario, o la que trajo Open Food Facts.
@@ -47,12 +54,10 @@
   const editedItem = $derived(
     itemId ? app.state.lists[storeId]?.items.find((item) => item.id === itemId) : undefined,
   );
-  const isOnlineItem = $derived(
-    !!itemId && !!app.state.stores.find((candidate) => candidate.id === storeId)?.online,
-  );
   let productUrl = $state(
     itemId ? app.state.lists[storeId]?.items.find((item) => item.id === itemId)?.url ?? '' : '',
   );
+  const isOnlineItem = $derived(!!itemId && (!!selectedStore?.online || !!productUrl));
   let showLinkField = $state(!!productUrl);
   let linkError = $state('');
   let note = $state(editedItem?.note ?? '');
@@ -102,6 +107,7 @@
   }
 
   function save() {
+    if (itemId && (!editedItem || !selectedStore)) return;
     const normalizedUrl = isOnlineItem ? normalizeProductUrl(productUrl) : '';
     if (normalizedUrl === null) {
       linkError = t('list.invalidLink');
@@ -122,7 +128,7 @@
         name: clean,
         categoryId,
         defaultUnit: unit,
-        ...(onlyHere ? { storeId } : { storeId: undefined }),
+        ...(onlyHere ? { storeId: itemId ? selectedStoreId : storeId } : { storeId: undefined }),
       });
     }
 
@@ -139,6 +145,7 @@
         priority,
         ...(isOnlineItem ? { url: normalizedUrl || undefined } : {}),
       });
+      app.moveItem(storeId, itemId, selectedStoreId);
     }
     onClose();
   }
@@ -233,7 +240,7 @@
         style="border-color: var(--border);">
         <input type="checkbox" bind:checked={onlyHere} class="mt-0.5" />
         <span class="text-xs">
-          <strong>{t('product.onlyIn', { store: storeName })}</strong>
+          <strong>{t('product.onlyIn', { store: itemId ? selectedStore?.name ?? storeName : storeName })}</strong>
           <span class="block text-muted">{t('product.onlyHereNote')}</span>
         </span>
       </label>
@@ -244,6 +251,19 @@
         style="border: 1px solid var(--border);">
         {t('product.seedNote', { name: product.name })}
       </p>
+    {/if}
+
+    {#if itemId}
+      <label class="block">
+        <span class="text-sm font-medium">{t('all.chooseStore')}</span>
+        <select bind:value={selectedStoreId} aria-label={t('all.chooseStore')}
+          class="mt-1 w-full rounded-xl border px-4 py-2 bg-transparent"
+          style="border-color: var(--border);">
+          {#each markets as market (market.id)}
+            <option value={market.id}>{market.name}</option>
+          {/each}
+        </select>
+      </label>
     {/if}
 
     <label class="block">
@@ -329,7 +349,7 @@
           class="rounded-xl border px-4 py-2.5 text-sm font-medium"
           style="border-color: #dc2626; color: #dc2626;">🗑️ {t('product.delete')}</button>
       {/if}
-      <button onclick={save} disabled={isCustom && name.trim().length < 2}
+      <button onclick={save} disabled={(isCustom && name.trim().length < 2) || (!!itemId && (!editedItem || !selectedStore))}
         class="flex-1 rounded-xl py-2.5 font-semibold text-white disabled:opacity-50"
         style="background: var(--accent);">{t('product.save')}</button>
     </div>

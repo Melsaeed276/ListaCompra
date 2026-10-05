@@ -98,5 +98,23 @@ assert.equal(remote.lists['tr-bim']?.items.length, 1, 'Polling must retry an uns
 assert.ok(remote.customProducts.some((p: any) => p.id === custom.id));
 assert.equal(client.syncStatus.connected, true);
 assert.equal(client.syncStatus.lastError, '');
+const movedRow = client.app.state.lists['tr-bim'].items[0];
+client.app.setItemQty('tr-bim', movedRow.id, 2.5);
+client.app.setItemUnit('tr-bim', movedRow.id, 'paquete');
+client.app.setItemDetails('tr-bim', movedRow.id, {
+  note: 'Keep this note', priority: 'high', url: 'https://example.com/product',
+});
+client.app.toggleItem('tr-bim', movedRow.id);
+client.app.setProductCompany(custom.id, 'company-eti');
+const beforeMove = JSON.parse(JSON.stringify(movedRow));
+client.app.moveItem('tr-bim', movedRow.id, 'tr-trendyol');
+await Promise.resolve();
+await client.pushNow();
+assert.equal(remote.lists['tr-bim'].items.length, 0);
+assert.deepEqual(remote.lists['tr-trendyol'].items[0], beforeMove);
+assert.equal(remote.productCompanies[custom.id], 'company-eti');
+client.app.moveItem('tr-trendyol', movedRow.id, 'tr-trendyol');
+client.app.moveItem('tr-bim', 'missing-item', 'tr-a101');
+assert.equal(client.app.state.lists['tr-trendyol'].items.length, 1);
 await client.stopSync();
-console.log('Client sync: queued edits, baselines and failed-save recovery passed');
+console.log('Client sync: queued edits, failed-save recovery and market moves preserving item details passed');
